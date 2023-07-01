@@ -4,8 +4,10 @@ import numpy as np
 import webbrowser
 import os,sys
 
+
+
 #Parsing raw data from the .OSM File14
-with open('Maps/Geylang.osm', "rb") as osm_fn:
+with open('Maps/test.osm', "rb") as osm_fn:
     map_osm = xtd.parse(osm_fn)['osm']
 
 #Parsing bounds from .OSM file
@@ -231,7 +233,7 @@ def OpenHTMLMapinBrowser(filename):
 #First Map Generator to show all the Nodes
 map1 = BuildAllNodesMap()
 map1.save("AllNodeMap.html")
-OpenHTMLMapinBrowser("AllNodeMap.html")
+OpenHTMLMapinBrowser("HTMLMap/AllNodeMap.html")
 
 #Third Map Generator to show path from source to destination
 while(True):
@@ -247,7 +249,7 @@ while(True):
 
     map2 = BuildAllClosestNodesMap(SourceNode, nodes_routes_values)
     map2.save("AllClosestNodeMap.html")
-    OpenHTMLMapinBrowser("AllClosestNodeMap.html")
+    OpenHTMLMapinBrowser("HTMLMap/AllClosestNodeMap.html")
 
     while(True):
         DestinationNode=int(input("Enter the selected Destination Node from the map or -1 to select a new node or 0 to exit :"))

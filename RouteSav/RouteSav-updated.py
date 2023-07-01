@@ -1,270 +1,192 @@
-import xmltodict as xtd
-import folium
-import numpy as np
-import webbrowser
-import os,sys
+import os
+import networkx as nx
+import plotly.graph_objects as go
+import osmnx as ox
+import pandas as pd
+import geopandas
 
-#Parsing raw data from the .OSM File14
-with open('Maps/S.osm', "rb") as osm_fn:
-    map_osm = xtd.parse(osm_fn)['osm']
 
-#Parsing bounds from .OSM file
-ymax = map_osm['bounds']['@maxlat']
-ymin = map_osm['bounds']['@minlat']
-xmax = map_osm['bounds']['@maxlon']
-xmin = map_osm['bounds']['@minlon']
-parsed_bounds = [xmin, xmax, ymin, ymax]
+##### Interface to OSMNX
+def generating_path(origin_point, target_point, perimeter):
+    # Using the cache accelerates processing for a large map
+    ox.config(log_console=True, use_cache=True)
 
-#Parsing Node
-Node=map_osm['node']
-Nnodes=len(Node)
-Nodeid = [0]*Nnodes
-xy = []
-for i in range(Nnodes):
-    Nodeid[i]=float(Node[i]['@id'])
-    x=float(Node[i]['@lat'])
-    y=float(Node[i]['@lon'])
-    xy.append([x,y])
-parsed_node={'id':Nodeid, 'xy':xy}
+    # Splice the geographical coordinates in long and lat
+    origin_lat = origin_point[0]
+    origin_long = origin_point[1]
 
-#Parsing Ways
-Way=map_osm['way']
-Nways=len(Way)
-Wayid=[0]*Nways
-nodes_in_way=[0]*Nways
-tags=[0]*Nways
-for i in range(Nways):
-    tempWay = Way[i]
-    Wayid[i] = float(tempWay['@id'])
-    Nnd=len(tempWay['nd'])
-    ndTemp=[0]*Nnd
-    for j in range(Nnd):
-        ndTemp[j]=float(tempWay['nd'][j]['@ref'])
-    nodes_in_way[i] = ndTemp
-    if 'tag' in tempWay.keys():
-        if type(tempWay['tag']) is list:
-              tags[i]=tempWay['tag']
-        else:
-              tags[i]=[tempWay['tag']]
+    target_lat = target_point[0]
+    target_long = target_point[1]
+
+    # Build the geocoordinate structure of the path's graph
+
+    # If the origin is further from the equator than the target
+    if origin_lat > target_lat:
+        north = origin_lat
+        south = target_lat
     else:
-        tags[i]=[]
-parsed_way={'id':Wayid,'nodes':nodes_in_way, 'tags':tags}
+        north = target_lat
+        south = origin_lat
 
-#Parsing Relations
-Relation=map_osm['relation']
-Nrelation=len(Relation)
-Relationid=[0]*Nrelation
-for i in range(Nrelation):
-    currentRelation = Relation[i]
-    currentId=currentRelation['@id']
-    Relationid[i]=float(currentId)
-parsed_relation={'id':Relationid}
+    # If the origin is further from the prime meridian than the target
+    if origin_long > target_long:
+        east = origin_long
+        west = target_long
+    else:
+        east = target_long
+        west = origin_long
 
-#Parsing .OSM file
-parsed_osm={
-    'bounds':parsed_bounds,
-    'relation':parsed_relation,
-    'way':parsed_way,
-    'node':parsed_node,
-    'attributes':map_osm.keys()
-}
+    # Construct the road graph
+    # Modes 'drive'
+    mode = 'drive'
 
-bounds=parsed_osm['bounds']
-way=parsed_osm['way']
-node=parsed_osm['node']
-relation=parsed_osm['relation']
-
-ways_num = len(way['id'])
-ways_node_set=way['nodes']
-node_ids = dict()
-n = len(node['id'])
-for i in range(n):
-    node_ids[node['id'][i]] = i
-
-road_vals = ['highway', 'motorway', 'motorway_link', 'trunk', 'trunk_link',
-             'primary', 'primary_link', 'secondary', 'secondary_link',
-             'tertiary', 'road', 'residential', 'living_street',
-             'service', 'services', 'motorway_junction']
-
-#Creating Connectivity between the nodes
-def create_connectivity():
-    connectivity_matrix = np.full((Nnodes,Nnodes), float('inf'))
-    np.fill_diagonal(connectivity_matrix, 0)
-
-    for currentWay in range(ways_num):
-        skip = True
-        for i in way['tags'][currentWay]:
-            if i['@k'] in road_vals:
-                skip = False
-                break
-        if skip:
-            continue
-
-        nodeset=ways_node_set[currentWay]
-        nodes_num=len(nodeset)
-
-        currentWayID = way['id'][currentWay]
-
-        for firstnode_local_index in range(nodes_num):
-            firstnode_id = nodeset[firstnode_local_index]
-            firstnode_index = node_ids.get(firstnode_id, -1)
-            if firstnode_index==-1: continue
-
-            for othernode_local_index in range(firstnode_local_index+1, nodes_num):
-                othernode_id=nodeset[othernode_local_index]
-                othernode_index = node_ids.get(othernode_id, -1)
-                if othernode_index==-1: continue
-
-                if(firstnode_id != othernode_id and connectivity_matrix[firstnode_index,othernode_index]==float('inf')):
-                    connectivity_matrix[firstnode_index, othernode_index] = 1
-                    connectivity_matrix[othernode_index, firstnode_index] = 1
-
-    return connectivity_matrix
-
-#Dijkstra Algorithm used for finding the shortest path
-def dijkstra(source, connectivity_matrix, p):
-    s = dict()
-    s[source] = True
-    p[source] = source
-
-    v = len(connectivity_matrix)
-    u = source
-    d_u = float('inf')
-    for i in range(v):
-        if i != source and connectivity_matrix[source][i] < d_u:
-            u = i
-            d_u = connectivity_matrix[source][i]
-    s[u] = True
-    p[u] = source
-
-    i = v-2
-    while i > 0:
-        u_x = source
-        d_u = float('inf')
-
-        for j in range(v):
-            if s.get(j, False) == False and connectivity_matrix[source][u] != float('inf') and connectivity_matrix[u][j] != float('inf'):
-                k = connectivity_matrix[source][u] + connectivity_matrix[u][j]
-                connectivity_matrix[source][j] = min(connectivity_matrix[source][j], k)
-                connectivity_matrix[j][source] = connectivity_matrix[source][j]
-
-                if connectivity_matrix[source][j] == k:
-                    p[j] = u
-                elif connectivity_matrix[source][j] == 1:
-                    p[j] = source
-
-                if connectivity_matrix[source][j] < d_u:
-                    u_x = j
-                    d_u = connectivity_matrix[source][j]
-
-        if u_x == source: break
-        s[u_x] = True
-        u = u_x
-        i -= 1
-
-#Plot Routes used for creating a continuos nodes
-def plot_routes(s, connectivity_matrix):
-    p = dict()
-    dijkstra(s, connectivity_matrix, p)
-
-    nodes_routes_values=[]
-    for i in p.keys():
-        adder=[i,0]
-        while p[i] != i:
-            adder[1]+=1
-            i = p[i]
-        nodes_routes_values.append(adder)
-
-    return nodes_routes_values,p
+    # Create the path/road network graph via setting the perimeters
+    roadgraph = ox.graph_from_bbox(north + perimeter, south - perimeter, east + perimeter, west - perimeter,
+                                   network_type=mode, simplify=False)
 
 
-print("Generating all nodes in the map..")
+    # Get the nearest node in the OSMNX graph for the origin point
+    origin_node = ox.distance.nearest_nodes(roadgraph, origin_point[1], origin_point[0])
 
-#Generating a map to display all the nodes
-def BuildAllNodesMap():
-    x1, y1 = (float(bounds[2]), float(bounds[0]))
-    x2, y2 = (float(bounds[3]), float(bounds[1]))
-    center = ((x1+x2)/2, (y1+y2)/2)
-    map_0 = folium.Map(location = center, zoom_start = 16)
+    # Get the nearest node in the OSMNX graph for the target point
+    target_node = ox.distance.nearest_nodes(roadgraph, target_point[1], target_point[0])
 
-    for i in range(n):
-        xy = (node['xy'][i][0], node['xy'][i][1])
-        folium.CircleMarker(xy, radius=3, color="green", fill=True, fill_color="green", popup=str(i)).add_to(map_0)
-    return map_0
+    # Get the optimal path via dijkstra
+    route = nx.shortest_path(roadgraph, origin_node, target_node, weight='length', method='dijkstra')
 
-#Generating a map to display all the nodes connected to the source
-def BuildAllClosestNodesMap(SourceNode, nodes_routes_values):
-    x1, y1 = (float(bounds[2]), float(bounds[0]))
-    x2, y2 = (float(bounds[3]), float(bounds[1]))
-    center = ((x1+x2)/2, (y1+y2)/2)
-    map_0 = folium.Map(location = center, zoom_start = 16)
+    # Create the arrays for storing the paths
+    lat = []
+    long = []
 
-    for i,j in nodes_routes_values:
-        xy = (node['xy'][i][0], node['xy'][i][1])
-        if(i!=SourceNode):
-            folium.CircleMarker(xy, radius=3, color="red", fill=True, fill_color="green", popup=str(i)).add_to(map_0)
-        else:
-            folium.CircleMarker(xy, radius=3, color="blue", fill=True, fill_color="green", popup=str(i)).add_to(map_0)
-    return map_0
+    for i in route:
+        point = roadgraph.nodes[i]
+        long.append(point['x'])
+        lat.append(point['y'])
 
-#Generating a map to display the path between source and destination
-def BuildFinalPathMap(i, p):
-    node_cds = []
-    while p[i] != i:
-        node_cds.append((node['xy'][i][0], node['xy'][i][1]))
-        i = p[i]
-
-    map_0 = folium.Map(location=node_cds[-1], zoom_start=15)
-
-    folium.CircleMarker(node_cds[-1], radius=5, color="blue", fill=True, fill_color="orange").add_to(map_0)
-    folium.Marker(node_cds[0], icon=folium.Icon(color="blue", icon="circle", prefix='fa')).add_to(map_0)
-
-    polyline = folium.PolyLine(locations=node_cds, weight=5, color="blue", opacity="0.75", dash_array=10)
-    polyline.add_to(map_0)
-
-    # Add markers for every single node in the path
-    for node_cd in node_cds:
-        folium.CircleMarker(node_cd, radius=3, color="blue", fill=True, fill_color="green").add_to(map_0)
-
-    return map_0
+    # Return the paths
+    return long, lat
 
 
-#Function to open a html file in browser
-def OpenHTMLMapinBrowser(filename):
-    url = "file://" + os.path.realpath(filename)
-    webbrowser.open(url,new=2)
+##### Plot the results using mapbox and plotly
+def plot_map(origin_point, target_points, long, lat):
+    print(origin_point)
+    print(target_points)
+    print(long)
+    print(lat)
+    # Create a plotly map and add the origin point to the map
+    print("Plotting map...")
+    fig = go.Figure(go.Scattermapbox(
+        name="Origin",
+        mode="markers",
+        lon=[origin_point[1]],
+        lat=[origin_point[0]],
+        marker={'size': 16, 'color': "#333333"},
+    )
 
-#First Map Generator to show all the Nodes
-map1 = BuildAllNodesMap()
-map1.save("AllNodeMap.html")
-OpenHTMLMapinBrowser("AllNodeMap.html")
+    )
 
-#Third Map Generator to show path from source to destination
-while(True):
-    SourceNode=int(input("Enter your node location or press 0 to exit:"))
-    connectivity_matrix = create_connectivity()
-    nodes_routes_values,p = plot_routes(SourceNode, connectivity_matrix)
-    #print(p)
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    for i in range(len(lat)):
+        fig.add_trace(go.Scattermapbox(
+            name="Path",
+            mode="lines",
+            lon=long[i],
+            lat=lat[i],
+            marker={'size': 10},
+            showlegend=False,
+            line=dict(width=4.5, color='#ff0000'))
+        )
 
-    if(not SourceNode):
-        print("Map Ended")
-        sys.exit(1)
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    for target_point in target_points:
+        fig.add_trace(go.Scattermapbox(
+            name="Destination",
+            mode="markers",
+            showlegend=False,
+            lon=[target_point[1]],
+            lat=[target_point[0]],
+            marker={'size': 16, 'color': '#ff0000'}))
+
+    # Style the map layout
+    fig.update_layout(
+        mapbox_style="streets",
+        mapbox_accesstoken="pk.eyJ1IjoiYWRhbXhhbmRyaWEiLCJhIjoiY2xqanRhbHpkMGFzbDNsbXU5bGxvaG9kcyJ9.0kKSEs9qPLBECjCqbNZ68A",
+        legend=dict(yanchor="top", y=1, xanchor="left", x=0.83),  # x 0.9
+        title="<span style='font-size: 32px;'><b>RouteSAV</b></span>",
+        font_family="Times New Roman",
+        font_color="#333333",
+        title_font_size=32,
+        font_size=18,
+        width=1920,
+        height=1080,
+    )
+
+    # Set the center of the map
+    lat_center = 1.3563
+    long_center = 103.9865
+
+    # Add the center to the map layout
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                      title=dict(yanchor="top", y=.97, xanchor="left", x=0.03),  # x 0.75
+                      mapbox={
+                          'center': {'lat': lat_center,
+                                     'lon': long_center},
+                          'zoom': 12.2}
+                      )
+
+    # Save map in output folder
+    print("Saving image to output folder...");
+    fig.write_image(OS_PATH + '/output/SingaporeMap.jpg', scale=3)
+
+    # Show the map in the web browser
+    print("Generating the map in browser...");
+    fig.show()
 
 
-    map2 = BuildAllClosestNodesMap(SourceNode, nodes_routes_values)
-    map2.save("AllClosestNodeMap.html")
-    OpenHTMLMapinBrowser("AllClosestNodeMap.html")
+##### MAIN
 
-    while(True):
-        DestinationNode=int(input("Enter your selected Destination Node from the map OR PRESS -1 to select a new node OR PRESS 0 to exit :"))
+# Data import path
+OS_PATH = os.path.dirname(os.path.realpath('__file__'))
+SENSORS_CSV = OS_PATH + '/data/geocoordinates.csv'
 
-        if(DestinationNode==1):
-            break
+# Data Import
+df1 = pd.read_csv(SENSORS_CSV)
 
-        if(not DestinationNode):
-            print("Map Ended")
-            sys.exit(1)
+# Keep only relevant columns
+df = df1.loc[:, ("LATITUDE", "LONGITUDE")]
 
-        map3 = BuildFinalPathMap(DestinationNode,p)
-        map3.save("OutputMap.html")
-        OpenHTMLMapinBrowser("OutputMap.html")
+# Create point geometries
+geometry = geopandas.points_from_xy(df.LONGITUDE, df.LATITUDE)
+geo_df = geopandas.GeoDataFrame(df[['LATITUDE', 'LONGITUDE']], geometry=geometry)
+
+# Format the target geocoordinates from the csv file
+target_points = []
+for lo, la in zip(df["LONGITUDE"], df["LATITUDE"]):
+    print(lo)
+    target_points.append((la, lo))
+
+# Set the origin geocoordinate from which the paths are calculated
+origin_point = (1.3563, 103.9865)
+
+# Create the lists for storing the paths
+long = []
+lat = []
+
+i = 0
+for target_point in target_points:
+    # Perimeter is the scope of the road network around a geocoordinate
+    perimeter = 0.10
+
+    # Process the optimal path
+    print("Processing Please wait ********************** " + str(i))
+    x, y = generating_path(origin_point, target_point, perimeter)
+
+    # Append the paths
+    long.append(x)
+    lat.append(y)
+
+    i += 1
+
+plot_map(origin_point, target_points, long, lat)

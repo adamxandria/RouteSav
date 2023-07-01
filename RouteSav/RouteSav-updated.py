@@ -149,10 +149,10 @@ def plot_map(origin_point, target_points, long, lat):
 
 # Data import path
 OS_PATH = os.path.dirname(os.path.realpath('__file__'))
-SENSORS_CSV = OS_PATH + '/data/geocoordinates.csv'
+CSV = OS_PATH + '/data/geocoordinates.csv'
 
 # Data Import
-df1 = pd.read_csv(SENSORS_CSV)
+df1 = pd.read_csv(CSV)
 
 # Keep only relevant columns
 df = df1.loc[:, ("LATITUDE", "LONGITUDE")]

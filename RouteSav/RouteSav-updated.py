@@ -1,9 +1,11 @@
 import os
+import sys
 import networkx as nx
 import plotly.graph_objects as go
 import osmnx as ox
-import pandas as pd
-import geopandas
+from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
+from PyQt5.QtWidgets import QLabel, QComboBox
+from plotly import offline
 
 
 ##### Interface to OSMNX
@@ -44,7 +46,6 @@ def generating_path(origin_point, target_point, perimeter):
     roadgraph = ox.graph_from_bbox(north + perimeter, south - perimeter, east + perimeter, west - perimeter,
                                    network_type=mode, simplify=False)
 
-
     # Get the nearest node in the OSMNX graph for the origin point
     origin_node = ox.distance.nearest_nodes(roadgraph, origin_point[1], origin_point[0])
 
@@ -68,9 +69,9 @@ def generating_path(origin_point, target_point, perimeter):
 
 
 ##### Plot the results using mapbox and plotly
-def plot_map(origin_point, target_points, long, lat):
+def plot_map(origin_point, target_point, long, lat):
     print(origin_point)
-    print(target_points)
+    print(target_point)
     print(long)
     print(lat)
     # Create a plotly map and add the origin point to the map
@@ -100,14 +101,13 @@ def plot_map(origin_point, target_points, long, lat):
 
     # Plot the target geocoordinates to the map
     print("Generating target...")
-    for target_point in target_points:
-        fig.add_trace(go.Scattermapbox(
-            name="Destination",
-            mode="markers",
-            showlegend=False,
-            lon=[target_point[1]],
-            lat=[target_point[0]],
-            marker={'size': 16, 'color': '#ff0000'}))
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#ff0000'}))
 
     # Style the map layout
     fig.update_layout(
@@ -136,57 +136,104 @@ def plot_map(origin_point, target_points, long, lat):
                           'zoom': 12.2}
                       )
 
-    # Save map in output folder
-    print("Saving image to output folder...");
-    fig.write_image(OS_PATH + '/output/SingaporeMap.jpg', scale=3)
-
-    # Show the map in the web browser
-    print("Generating the map in browser...");
-    fig.show()
+    # Save the figure as an HTML file
+    offline.plot(fig, filename='plot.html', auto_open=False)
 
 
 ##### MAIN
+class Window(QtWidgets.QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.destination_dropdown = None
+        self.source_dropdown = None
+        self.initWindow()
 
-# Data import path
-OS_PATH = os.path.dirname(os.path.realpath('__file__'))
-CSV = OS_PATH + '/data/geocoordinates.csv'
+    def initWindow(self):
+        self.setWindowTitle(self.tr("MAP PROJECT"))
+        self.setFixedSize(1500, 800)
+        self.buttonUI()
+        ox.config(use_cache=True, log_console=True)
 
-# Data Import
-df1 = pd.read_csv(CSV)
+    def buttonUI(self):
+        # Create the "Source" title label
+        source_label = QLabel("Starting Point", self)
 
-# Keep only relevant columns
-df = df1.loc[:, ("LATITUDE", "LONGITUDE")]
+        # Create the source dropdown
+        self.source_dropdown = QComboBox(self)
+        self.source_dropdown.addItem("Changi Airport Terminal 3", [1.355819113734586, 103.98637764883509])
+        self.source_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
+        self.source_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
+        self.source_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
 
-# Create point geometries
-geometry = geopandas.points_from_xy(df.LONGITUDE, df.LATITUDE)
-geo_df = geopandas.GeoDataFrame(df[['LATITUDE', 'LONGITUDE']], geometry=geometry)
+        # Create the "Destination" title label
+        destination_label = QLabel("Destination", self)
 
-# Format the target geocoordinates from the csv file
-target_points = []
-for lo, la in zip(df["LONGITUDE"], df["LATITUDE"]):
-    print(lo)
-    target_points.append((la, lo))
+        # Create the destination dropdown
+        self.destination_dropdown = QComboBox(self)
+        self.destination_dropdown.addItem("Changi Airport Terminal 3", [1.355819113734586, 103.98637764883509])
+        self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
+        self.destination_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
+        self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
+        findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
+        findPathButton.setFixedSize(120, 50)
 
-# Set the origin geocoordinate from which the paths are calculated
-origin_point = (1.3563, 103.9865)
+        self.view = QtWebEngineWidgets.QWebEngineView()
+        self.view.setContentsMargins(25, 25, 25, 25)
 
-# Create the lists for storing the paths
-long = []
-lat = []
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        lay = QtWidgets.QHBoxLayout(central_widget)
 
-i = 0
-for target_point in target_points:
-    # Perimeter is the scope of the road network around a geocoordinate
-    perimeter = 0.10
+        button_container = QtWidgets.QWidget()
+        vlay = QtWidgets.QVBoxLayout(button_container)
+        vlay.addStretch()
+        vlay.addWidget(source_label)
+        vlay.addWidget(self.source_dropdown)
+        vlay.addWidget(destination_label)
+        vlay.addWidget(self.destination_dropdown)
+        hlay = QtWidgets.QHBoxLayout()
+        hlay.addWidget(findPathButton)
+        vlay.addLayout(hlay)
+        vlay.addStretch()
+        lay.addWidget(button_container)
+        lay.addWidget(self.view, stretch=1)
 
-    # Process the optimal path
-    print("Processing Please wait ********************** " + str(i))
-    x, y = generating_path(origin_point, target_point, perimeter)
+        # Connect the findPathButton to rout_path function
+        findPathButton.clicked.connect(self.route_path)
 
-    # Append the paths
-    long.append(x)
-    lat.append(y)
+    def display(self, filename):
+        # Get the current directory
+        current_directory = os.path.dirname(os.path.abspath(__file__))
+        # Specify the full path to the HTML file
+        html_file = os.path.join(current_directory, filename)
+        self.view.load(QtCore.QUrl.fromLocalFile(html_file))
 
-    i += 1
+    def route_path(self):
+        self.route_cal()
+        self.display('plot.html')
 
-plot_map(origin_point, target_points, long, lat)
+    def route_cal(self):
+        source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
+        destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
+        # Set the origin and target geocoordinate from which the paths are calculated
+        origin_point = (source[0], source[1])
+        target_point = (destination[0], destination[1])
+        # Create the lists for storing the paths
+        long = []
+        lat = []
+
+        # Perimeter is the scope of the road network around a geocoordinate
+        perimeter = 0.10
+        x, y = generating_path(origin_point, target_point, perimeter)
+        # Append the paths
+        long.append(x)
+        lat.append(y)
+
+        plot_map(origin_point, target_point, long, lat)
+
+
+if __name__ == "__main__":
+    App = QtWidgets.QApplication(sys.argv)
+    window = Window()
+    window.show()
+    sys.exit(App.exec())

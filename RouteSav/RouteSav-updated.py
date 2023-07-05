@@ -1,11 +1,50 @@
 import os
 import sys
+import threading
+
 import networkx as nx
 import plotly.graph_objects as go
 import osmnx as ox
 from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
-from PyQt5.QtWidgets import QLabel, QComboBox
+from PyQt5.QtWidgets import QLabel, QComboBox, QWidget, QVBoxLayout
 from plotly import offline
+
+import heapq
+
+
+def dijkstra_shortest_path(graph, source, target):
+    distances = {node: float('inf') for node in graph}
+    distances[source] = 0
+    previous_nodes = {node: None for node in graph}
+
+    priority_queue = [(0, source)]
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+
+        if current_node == target:
+            break
+
+        if current_distance > distances[current_node]:
+            continue
+
+        for neighbor, weight in graph[current_node].items():
+            distance = current_distance + weight[0]['length']
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                previous_nodes[neighbor] = current_node
+                heapq.heappush(priority_queue, (distance, neighbor))
+
+    if distances[target] == float('inf'):
+        return None  # No path found
+
+    path = []
+    current_node = target
+    while current_node is not None:
+        path.append(current_node)
+        current_node = previous_nodes[current_node]
+    path.reverse()
+
+    return path
 
 
 ##### Interface to OSMNX
@@ -53,8 +92,8 @@ def generating_path(origin_point, target_point, perimeter):
     target_node = ox.distance.nearest_nodes(roadgraph, target_point[1], target_point[0])
 
     # Get the optimal path via dijkstra
-    route = nx.shortest_path(roadgraph, origin_node, target_node, weight='length', method='dijkstra')
-
+    # route = nx.shortest_path(roadgraph, origin_node, target_node, weight='length', method='dijkstra')
+    route = dijkstra_shortest_path(roadgraph,origin_node,target_node)
     # Create the arrays for storing the paths
     lat = []
     long = []
@@ -209,10 +248,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.load(QtCore.QUrl.fromLocalFile(html_file))
 
     def route_path(self):
-        self.route_cal()
-        self.display('plot.html')
-
-    def route_cal(self):
+        self.display('loading.html')
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
         # Set the origin and target geocoordinate from which the paths are calculated
@@ -230,6 +266,7 @@ class Window(QtWidgets.QMainWindow):
         lat.append(y)
 
         plot_map(origin_point, target_point, long, lat)
+        self.display('plot.html')
 
 
 if __name__ == "__main__":

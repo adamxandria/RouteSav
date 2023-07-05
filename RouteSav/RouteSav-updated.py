@@ -1,14 +1,12 @@
 import os
 import sys
-import threading
 
 import networkx as nx
 import plotly.graph_objects as go
 import osmnx as ox
 from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
-from PyQt5.QtWidgets import QLabel, QComboBox, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QLabel, QComboBox
 from plotly import offline
-
 import heapq
 
 
@@ -50,7 +48,7 @@ def dijkstra_shortest_path(graph, source, target):
 ##### Interface to OSMNX
 def generating_path(origin_point, target_point, perimeter):
     # Using the cache accelerates processing for a large map
-    ox.config(log_console=True, use_cache=True)
+    # ox.config(log_console=True, use_cache=True, cache_folder='/cache')
 
     # Splice the geographical coordinates in long and lat
     origin_lat = origin_point[0]
@@ -80,10 +78,15 @@ def generating_path(origin_point, target_point, perimeter):
     # Construct the road graph
     # Modes 'drive'
     mode = 'drive'
-
-    # Create the path/road network graph via setting the perimeters
-    roadgraph = ox.graph_from_bbox(north + perimeter, south - perimeter, east + perimeter, west - perimeter,
-                                   network_type=mode, simplify=False)
+    # Specify the full path to the HTML file
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'preprocessed_graph.graphml')):
+        # Load the pre-processed graph
+        roadgraph = ox.load_graphml('preprocessed_graph.graphml')
+    else:
+        # Create the path/road network graph via setting the perimeters
+        roadgraph = ox.graph_from_bbox(north + perimeter, south - perimeter, east + perimeter, west - perimeter,
+                                       network_type=mode, simplify=False)
+        ox.save_graphml(roadgraph, 'preprocessed_graph.graphml')
 
     # Get the nearest node in the OSMNX graph for the origin point
     origin_node = ox.distance.nearest_nodes(roadgraph, origin_point[1], origin_point[0])
@@ -93,7 +96,7 @@ def generating_path(origin_point, target_point, perimeter):
 
     # Get the optimal path via dijkstra
     # route = nx.shortest_path(roadgraph, origin_node, target_node, weight='length', method='dijkstra')
-    route = dijkstra_shortest_path(roadgraph,origin_node,target_node)
+    route = dijkstra_shortest_path(roadgraph, origin_node, target_node)
     # Create the arrays for storing the paths
     lat = []
     long = []

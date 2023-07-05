@@ -1,6 +1,5 @@
 import os
 import sys
-
 import networkx as nx
 import plotly.graph_objects as go
 import osmnx as ox
@@ -8,6 +7,16 @@ from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
 from PyQt5.QtWidgets import QLabel, QComboBox
 from plotly import offline
 import heapq
+from multiprocessing import Process
+
+MODE = "drive"
+NORTH = 1.3701654712520062
+SOUTH = 1.2946774207297054
+EAST = 103.9907219819978
+WEST = 103.87206966924965
+PERIMETER = 0.001
+ox.settings.log_console = True
+ox.settings.use_cache = True
 
 
 def dijkstra_shortest_path(graph, source, target):
@@ -45,64 +54,35 @@ def dijkstra_shortest_path(graph, source, target):
     return path
 
 
-##### Interface to OSMNX
-def generating_path(origin_point, target_point, perimeter):
-    # Using the cache accelerates processing for a large map
-    # ox.config(log_console=True, use_cache=True, cache_folder='/cache')
+def create_graph():
+    """use osmnx to pull map data and process to graph"""
 
-    # Splice the geographical coordinates in long and lat
-    origin_lat = origin_point[0]
-    origin_long = origin_point[1]
+    if os.path.exists('preprocessed_graph.graphml'):
+        os.remove('preprocessed_graph.graphml')
+    graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
+                               network_type=MODE, simplify=False)
+    ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
-    target_lat = target_point[0]
-    target_long = target_point[1]
 
-    # Build the geocoordinate structure of the path's graph
-
-    # If the origin is further from the equator than the target
-    if origin_lat > target_lat:
-        north = origin_lat
-        south = target_lat
-    else:
-        north = target_lat
-        south = origin_lat
-
-    # If the origin is further from the prime meridian than the target
-    if origin_long > target_long:
-        east = origin_long
-        west = target_long
-    else:
-        east = target_long
-        west = origin_long
-
-    # Construct the road graph
-    # Modes 'drive'
-    mode = 'drive'
-    # Specify the full path to the HTML file
-    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'preprocessed_graph.graphml')):
-        # Load the pre-processed graph
-        roadgraph = ox.load_graphml('preprocessed_graph.graphml')
-    else:
-        # Create the path/road network graph via setting the perimeters
-        roadgraph = ox.graph_from_bbox(north + perimeter, south - perimeter, east + perimeter, west - perimeter,
-                                       network_type=mode, simplify=False)
-        ox.save_graphml(roadgraph, 'preprocessed_graph.graphml')
-
+def generating_path(origin_point, target_point):
+    """load processed graph and use to calculate optimal route"""
+    create_graph_process.join()
+    # Load the pre-processed graph
+    graph = ox.load_graphml('preprocessed_graph.graphml')
     # Get the nearest node in the OSMNX graph for the origin point
-    origin_node = ox.distance.nearest_nodes(roadgraph, origin_point[1], origin_point[0])
+    origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
 
     # Get the nearest node in the OSMNX graph for the target point
-    target_node = ox.distance.nearest_nodes(roadgraph, target_point[1], target_point[0])
+    target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
     # Get the optimal path via dijkstra
-    # route = nx.shortest_path(roadgraph, origin_node, target_node, weight='length', method='dijkstra')
-    route = dijkstra_shortest_path(roadgraph, origin_node, target_node)
+    route = dijkstra_shortest_path(graph, origin_node, target_node)
     # Create the arrays for storing the paths
     lat = []
     long = []
 
     for i in route:
-        point = roadgraph.nodes[i]
+        point = graph.nodes[i]
         long.append(point['x'])
         lat.append(point['y'])
 
@@ -110,8 +90,8 @@ def generating_path(origin_point, target_point, perimeter):
     return long, lat
 
 
-##### Plot the results using mapbox and plotly
 def plot_map(origin_point, target_point, long, lat):
+    """plot route onto map"""
     print(origin_point)
     print(target_point)
     print(long)
@@ -123,23 +103,21 @@ def plot_map(origin_point, target_point, long, lat):
         mode="markers",
         lon=[origin_point[1]],
         lat=[origin_point[0]],
-        marker={'size': 16, 'color': "#333333"},
+        marker={'size': 16, 'color': "#333333"}
     )
-
     )
 
     # Plot the optimal paths to the map
     print("Generating paths.....")
-    for i in range(len(lat)):
-        fig.add_trace(go.Scattermapbox(
-            name="Path",
-            mode="lines",
-            lon=long[i],
-            lat=lat[i],
-            marker={'size': 10},
-            showlegend=False,
-            line=dict(width=4.5, color='#ff0000'))
-        )
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=long,
+        lat=lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#ff0000'))
+    )
 
     # Plot the target geocoordinates to the map
     print("Generating target...")
@@ -182,8 +160,9 @@ def plot_map(origin_point, target_point, long, lat):
     offline.plot(fig, filename='plot.html', auto_open=False)
 
 
-##### MAIN
 class Window(QtWidgets.QMainWindow):
+    """Main window GUI"""
+
     def __init__(self):
         super().__init__()
         self.destination_dropdown = None
@@ -194,9 +173,9 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle(self.tr("MAP PROJECT"))
         self.setFixedSize(1500, 800)
         self.buttonUI()
-        ox.config(use_cache=True, log_console=True)
 
     def buttonUI(self):
+        """create and display all button and widgets"""
         # Create the "Source" title label
         source_label = QLabel("Starting Point", self)
 
@@ -243,7 +222,8 @@ class Window(QtWidgets.QMainWindow):
         # Connect the findPathButton to rout_path function
         findPathButton.clicked.connect(self.route_path)
 
-    def display(self, filename):
+    def display_map(self, filename):
+        """display map"""
         # Get the current directory
         current_directory = os.path.dirname(os.path.abspath(__file__))
         # Specify the full path to the HTML file
@@ -251,28 +231,22 @@ class Window(QtWidgets.QMainWindow):
         self.view.load(QtCore.QUrl.fromLocalFile(html_file))
 
     def route_path(self):
-        self.display('loading.html')
+        self.display_map('loading.html')
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
         # Set the origin and target geocoordinate from which the paths are calculated
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
-        # Create the lists for storing the paths
-        long = []
-        lat = []
 
-        # Perimeter is the scope of the road network around a geocoordinate
-        perimeter = 0.10
-        x, y = generating_path(origin_point, target_point, perimeter)
-        # Append the paths
-        long.append(x)
-        lat.append(y)
+        long, lat = generating_path(origin_point, target_point)
 
         plot_map(origin_point, target_point, long, lat)
-        self.display('plot.html')
+        self.display_map('plot.html')
 
 
 if __name__ == "__main__":
+    create_graph_process = Process(target=create_graph)
+    create_graph_process.start()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

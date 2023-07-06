@@ -101,8 +101,9 @@ def plot_map(origin_point, target_point, long, lat):
     fig = go.Figure(go.Scattermapbox(
         name="Origin",
         mode="markers",
-        lon=[origin_point[1]],
-        lat=[origin_point[0]],
+        lon=[long[0]],
+        lat=[lat[0]],
+        showlegend=False,
         marker={'size': 16, 'color': "#333333"}
     )
     )
@@ -125,8 +126,8 @@ def plot_map(origin_point, target_point, long, lat):
         name="Destination",
         mode="markers",
         showlegend=False,
-        lon=[target_point[1]],
-        lat=[target_point[0]],
+        lon=[long[-1]],
+        lat=[lat[-1]],
         marker={'size': 16, 'color': '#ff0000'}))
 
     # Style the map layout

@@ -173,6 +173,10 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle(self.tr("MAP PROJECT"))
         self.setFixedSize(1500, 800)
         self.buttonUI()
+        self.display_initial_map()
+
+    def display_initial_map(self):
+        self.display_map('default.html')
 
     def buttonUI(self):
         """create and display all button and widgets"""

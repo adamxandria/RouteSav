@@ -144,8 +144,8 @@ def plot_map(origin_point, target_point, long, lat):
     )
 
     # Set the center of the map
-    lat_center = 1.3563
-    long_center = 103.9865
+    lat_center = lat[int(len(lat)/2)]-0.008
+    long_center = long[int(len(long)/2)]+0.05
 
     # Add the center to the map layout
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -153,7 +153,7 @@ def plot_map(origin_point, target_point, long, lat):
                       mapbox={
                           'center': {'lat': lat_center,
                                      'lon': long_center},
-                          'zoom': 12.2}
+                          'zoom': 12.5}
                       )
 
     # Save the figure as an HTML file
@@ -173,9 +173,6 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle(self.tr("MAP PROJECT"))
         self.setFixedSize(1500, 800)
         self.buttonUI()
-        self.display_initial_map()
-
-    def display_initial_map(self):
         self.display_map('default.html')
 
     def buttonUI(self):

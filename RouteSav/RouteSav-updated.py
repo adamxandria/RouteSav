@@ -24,9 +24,15 @@ def dijkstra_shortest_path(graph, source, target):
     distances[source] = 0
     previous_nodes = {node: None for node in graph}
 
+    # Find the source and target
+    # print('Source: ', source)
+    # print('Target: ',target)
+
     priority_queue = [(0, source)]
     while priority_queue:
         current_distance, current_node = heapq.heappop(priority_queue)
+
+        # print('current node is : ', current_node)
 
         if current_node == target:
             break
@@ -193,7 +199,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Create the destination dropdown
         self.destination_dropdown = QComboBox(self)
-        self.destination_dropdown.addItem("Changi Airport Terminal 3", [1.355819113734586, 103.98637764883509])
+        self.destination_dropdown.addItem("Changi Airport Terminal 3", [1.350401, 103.9850091])
         self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
         self.destination_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])

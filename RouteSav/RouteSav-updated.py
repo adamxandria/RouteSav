@@ -1,6 +1,5 @@
 import os
 import sys
-import networkx as nx
 import plotly.graph_objects as go
 import osmnx as ox
 from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
@@ -41,7 +40,10 @@ def dijkstra_shortest_path(graph, source, target):
             continue
 
         for neighbor, weight in graph[current_node].items():
-            distance = current_distance + weight[0]['length']
+            if 'maxspeed' in weight[0]:
+                distance = current_distance + weight[0]['length'] + float(weight[0]['maxspeed'])
+            else:
+                distance = current_distance + weight[0]['length']
             if distance < distances[neighbor]:
                 distances[neighbor] = distance
                 previous_nodes[neighbor] = current_node
@@ -70,9 +72,36 @@ def create_graph():
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
 
+def calculate_total_distance(graph, path):
+    total_distance = 0
+    for i in range(len(path) - 1):
+        node1 = path[i]
+        node2 = path[i + 1]
+        edge_data = graph[node1][node2][0]
+        edge_length = edge_data['length'] / 1000
+        total_distance += edge_length
+    return "{:.2f}".format(total_distance)
+
+
+def calculate_cumulative_time(graph, path):
+    cumulative_time = 0
+    for i in range(len(path) - 1):
+        node1 = path[i]
+        node2 = path[i + 1]
+        edge_data = graph[node1][node2][0]
+        edge_length = edge_data['length'] / 1000
+        if 'maxspeed' in edge_data:
+            edge_speed = float(edge_data['maxspeed'])  # Speed specific to the edge
+        else:
+            edge_speed = 50.0
+        edge_time = edge_length / edge_speed * 60
+        cumulative_time += edge_time
+    return round(cumulative_time * 1.3) # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
+
+
 def generating_path(origin_point, target_point):
     """load processed graph and use to calculate optimal route"""
-    create_graph_process.join()
+    # create_graph_process.join()
     # Load the pre-processed graph
     graph = ox.load_graphml('preprocessed_graph.graphml')
     # Get the nearest node in the OSMNX graph for the origin point
@@ -83,6 +112,10 @@ def generating_path(origin_point, target_point):
 
     # Get the optimal path via dijkstra
     route = dijkstra_shortest_path(graph, origin_node, target_node)
+    total_distance = calculate_total_distance(graph, route)
+    print(total_distance)
+    cumulative_time = calculate_cumulative_time(graph, route)
+    print("Cumulative time from A to B:", cumulative_time)
     # Create the arrays for storing the paths
     lat = []
     long = []
@@ -93,7 +126,7 @@ def generating_path(origin_point, target_point):
         lat.append(point['y'])
 
     # Return the paths
-    return long, lat
+    return long, lat, total_distance, cumulative_time
 
 
 def plot_map(origin_point, target_point, long, lat):
@@ -151,8 +184,8 @@ def plot_map(origin_point, target_point, long, lat):
     )
 
     # Set the center of the map
-    lat_center = lat[int(len(lat)/2)]-0.008
-    long_center = long[int(len(long)/2)]+0.05
+    lat_center = lat[int(len(lat) / 2)] - 0.008
+    long_center = long[int(len(long) / 2)] + 0.05
 
     # Add the center to the map layout
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -189,7 +222,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Create the source dropdown
         self.source_dropdown = QComboBox(self)
-        self.source_dropdown.addItem("Changi Airport Terminal 3", [1.355819113734586, 103.98637764883509])
+        self.source_dropdown.addItem("Changi Airport Terminal 3", [1.350401, 103.9850091])
         self.source_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
         self.source_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
         self.source_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
@@ -205,6 +238,13 @@ class Window(QtWidgets.QMainWindow):
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
+
+        #display estimated time and distance
+        self.info = QtWidgets.QVBoxLayout(self)
+        self.label_time = QLabel("Estimated Time: -")
+        self.label_distance = QLabel("Estimated Distance: -")
+        self.info.addWidget(self.label_time)
+        self.info.addWidget(self.label_distance)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(25, 25, 25, 25)
@@ -223,6 +263,7 @@ class Window(QtWidgets.QMainWindow):
         hlay = QtWidgets.QHBoxLayout()
         hlay.addWidget(findPathButton)
         vlay.addLayout(hlay)
+        vlay.addLayout(self.info)
         vlay.addStretch()
         lay.addWidget(button_container)
         lay.addWidget(self.view, stretch=1)
@@ -239,16 +280,17 @@ class Window(QtWidgets.QMainWindow):
         self.view.load(QtCore.QUrl.fromLocalFile(html_file))
 
     def route_path(self):
-        self.display_map('loading.html')
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
         # Set the origin and target geocoordinate from which the paths are calculated
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        long, lat = generating_path(origin_point, target_point)
+        long, lat, total_dist, cumulative_time = generating_path(origin_point, target_point)
 
         plot_map(origin_point, target_point, long, lat)
+        self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+        self.label_distance.setText(f"Estimated Distance: {total_dist} km")
         self.display_map('plot.html')
 
 

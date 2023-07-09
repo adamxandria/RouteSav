@@ -14,18 +14,11 @@ SOUTH = 1.2946774207297054
 EAST = 103.9907219819978
 WEST = 103.87206966924965
 PERIMETER = 0.001
-# Define the nodes for which ERP charges apply
-ERP_NODES = [1782376539, 6041619982]  # Replace with your specific node IDs
-
 ox.settings.log_console = True
 ox.settings.use_cache = True
 
 
-<<<<<<< Updated upstream
 def dijkstra_shortest_path(graph, source, target):
-=======
-def dijkstra_shortest_path(graph, source, target, toll):
->>>>>>> Stashed changes
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
     previous_nodes = {node: None for node in graph}
@@ -47,18 +40,10 @@ def dijkstra_shortest_path(graph, source, target, toll):
             continue
 
         for neighbor, weight in graph[current_node].items():
-<<<<<<< Updated upstream
-=======
-            if toll:
-                if neighbor in ERP_NODES:  # Check if neighbor is an ERP node
-                    continue
-
->>>>>>> Stashed changes
             if 'maxspeed' in weight[0]:
                 distance = current_distance + weight[0]['length'] + float(weight[0]['maxspeed'])
             else:
-                distance = current_distance + weight[0]['length'] + 50.0
-
+                distance = current_distance + weight[0]['length']
             if distance < distances[neighbor]:
                 distances[neighbor] = distance
                 previous_nodes[neighbor] = current_node
@@ -84,15 +69,6 @@ def create_graph():
         os.remove('preprocessed_graph.graphml')
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
                                network_type=MODE, simplify=False)
-<<<<<<< Updated upstream
-=======
-
-    # Assign ERP costs to the specified nodes
-    erp_cost = 2  # Set the ERP cost value according to your preference
-    for node in ERP_NODES:
-        graph.nodes[node]['payment:erp'] = erp_cost
-
->>>>>>> Stashed changes
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
 
@@ -120,11 +96,10 @@ def calculate_cumulative_time(graph, path):
             edge_speed = 50.0
         edge_time = edge_length / edge_speed * 60
         cumulative_time += edge_time
-    return round(
-        cumulative_time * 1.3)  # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
+    return round(cumulative_time * 1.3) # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
 
 
-def generating_path(origin_point, target_point, toll):
+def generating_path(origin_point, target_point):
     """load processed graph and use to calculate optimal route"""
     # create_graph_process.join()
     # Load the pre-processed graph
@@ -135,13 +110,8 @@ def generating_path(origin_point, target_point, toll):
     # Get the nearest node in the OSMNX graph for the target point
     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
-<<<<<<< Updated upstream
     # Get the optimal path via dijkstra
     route = dijkstra_shortest_path(graph, origin_node, target_node)
-=======
-    # Get the optimal path via Dijkstra's algorithm
-    route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
->>>>>>> Stashed changes
     total_distance = calculate_total_distance(graph, route)
     print(total_distance)
     cumulative_time = calculate_cumulative_time(graph, route)
@@ -266,19 +236,10 @@ class Window(QtWidgets.QMainWindow):
         self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
         self.destination_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
-
-        # Create the "Avoid Toll" title label
-        toll_label = QLabel("Avoid Toll", self)
-
-        # Create the "avoid toll" dropdown
-        self.toll_dropdown = QComboBox(self)
-        self.toll_dropdown.addItem("Yes", True)
-        self.toll_dropdown.addItem("No", False)
-
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
 
-        # display estimated time and distance
+        #display estimated time and distance
         self.info = QtWidgets.QVBoxLayout(self)
         self.label_time = QLabel("Estimated Time: -")
         self.label_distance = QLabel("Estimated Distance: -")
@@ -299,8 +260,6 @@ class Window(QtWidgets.QMainWindow):
         vlay.addWidget(self.source_dropdown)
         vlay.addWidget(destination_label)
         vlay.addWidget(self.destination_dropdown)
-        vlay.addWidget(toll_label)
-        vlay.addWidget(self.toll_dropdown)
         hlay = QtWidgets.QHBoxLayout()
         hlay.addWidget(findPathButton)
         vlay.addLayout(hlay)
@@ -323,12 +282,11 @@ class Window(QtWidgets.QMainWindow):
     def route_path(self):
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
-        toll = self.toll_dropdown.itemData(self.toll_dropdown.currentIndex())
         # Set the origin and target geocoordinate from which the paths are calculated
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        long, lat, total_dist, cumulative_time = generating_path(origin_point, target_point, toll)
+        long, lat, total_dist, cumulative_time = generating_path(origin_point, target_point)
 
         plot_map(origin_point, target_point, long, lat)
         self.label_time.setText(f"Estimated Time: {cumulative_time} min")
@@ -337,8 +295,8 @@ class Window(QtWidgets.QMainWindow):
 
 
 if __name__ == "__main__":
-    # create_graph_process = Process(target=create_graph)
-    # create_graph_process.start()
+    create_graph_process = Process(target=create_graph)
+    create_graph_process.start()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

@@ -18,20 +18,14 @@ ox.settings.log_console = True
 ox.settings.use_cache = True
 
 
-def dijkstra_shortest_path(graph, source, target):
+def dijkstra_shortest_path(graph, source, target, erp_nodes):
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
     previous_nodes = {node: None for node in graph}
 
-    # Find the source and target
-    # print('Source: ', source)
-    # print('Target: ',target)
-
     priority_queue = [(0, source)]
     while priority_queue:
         current_distance, current_node = heapq.heappop(priority_queue)
-
-        # print('current node is : ', current_node)
 
         if current_node == target:
             break
@@ -40,6 +34,9 @@ def dijkstra_shortest_path(graph, source, target):
             continue
 
         for neighbor, weight in graph[current_node].items():
+            if neighbor in erp_nodes:  # Check if neighbor is an ERP node
+                continue
+
             if 'maxspeed' in weight[0]:
                 distance = current_distance + weight[0]['length'] + float(weight[0]['maxspeed'])
             else:
@@ -69,6 +66,16 @@ def create_graph():
         os.remove('preprocessed_graph.graphml')
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
                                network_type=MODE, simplify=False)
+
+
+    # Define the nodes for which ERP charges apply
+    erp_nodes = [1782376539, 6041619982]  # Replace with your specific node IDs
+
+    # Assign ERP costs to the specified nodes
+    erp_cost = 2  # Set the ERP cost value according to your preference
+    for node in erp_nodes:
+        graph.nodes[node]['payment:erp'] = erp_cost
+
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
 
@@ -110,8 +117,12 @@ def generating_path(origin_point, target_point):
     # Get the nearest node in the OSMNX graph for the target point
     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
-    # Get the optimal path via dijkstra
-    route = dijkstra_shortest_path(graph, origin_node, target_node)
+    # Define the ERP nodes
+    erp_nodes = [1782376539, 6041619982]  # Replace with your specific ERP node IDs
+
+
+    # Get the optimal path via Dijkstra's algorithm
+    route = dijkstra_shortest_path(graph, origin_node, target_node, erp_nodes)
     total_distance = calculate_total_distance(graph, route)
     print(total_distance)
     cumulative_time = calculate_cumulative_time(graph, route)

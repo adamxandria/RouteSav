@@ -69,7 +69,7 @@ def create_graph():
 
 
     # Define the nodes for which ERP charges apply
-    erp_nodes = [1782376539]  # Replace with your specific node IDs
+    erp_nodes = [1782376539, 6041619982]  # Replace with your specific node IDs
 
     # Assign ERP costs to the specified nodes
     erp_cost = 2  # Set the ERP cost value according to your preference

@@ -7,6 +7,15 @@ from PyQt5.QtWidgets import QLabel, QComboBox
 from plotly import offline
 import heapq
 from multiprocessing import Process
+import pytz
+from datetime import datetime
+import requests
+import json
+
+headers = {
+    'AccountKey': '6UiItqJPT8WWLFB4FnIMCg== ',
+    'accept': 'application/json'
+}
 
 MODE = "drive"
 NORTH = 1.3701654712520062
@@ -16,9 +25,26 @@ WEST = 103.87206966924965
 PERIMETER = 0.001
 ox.settings.log_console = True
 ox.settings.use_cache = True
+# Define the nodes for which ERP charges apply
+ERP_NODES = {5917182554: "EC1", 5918708421: "PE4"}  # Replace with your specific node IDs
 
 
-def dijkstra_shortest_path(graph, source, target, erp_nodes):
+def fetch_all(url):
+    results = []
+    while True:
+        new_results = requests.get(
+            url,
+            headers=headers,
+            params={'$skip': len(results)}
+        ).json()['value']
+        if new_results == []:
+            break
+        else:
+            results += new_results
+    return results
+
+
+def dijkstra_shortest_path(graph, source, target, toll):
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
     previous_nodes = {node: None for node in graph}
@@ -34,8 +60,9 @@ def dijkstra_shortest_path(graph, source, target, erp_nodes):
             continue
 
         for neighbor, weight in graph[current_node].items():
-            if neighbor in erp_nodes:  # Check if neighbor is an ERP node
-                continue
+            if toll:
+                if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
+                    continue
 
             if 'maxspeed' in weight[0]:
                 distance = current_distance + weight[0]['length'] + float(weight[0]['maxspeed'])
@@ -67,13 +94,9 @@ def create_graph():
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
                                network_type=MODE, simplify=False)
 
-
-    # Define the nodes for which ERP charges apply
-    erp_nodes = [1782376539, 6041619982]  # Replace with your specific node IDs
-
     # Assign ERP costs to the specified nodes
     erp_cost = 2  # Set the ERP cost value according to your preference
-    for node in erp_nodes:
+    for node in ERP_NODES.keys():
         graph.nodes[node]['payment:erp'] = erp_cost
 
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
@@ -103,30 +126,73 @@ def calculate_cumulative_time(graph, path):
             edge_speed = 50.0
         edge_time = edge_length / edge_speed * 60
         cumulative_time += edge_time
-    return round(cumulative_time * 1.3) # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
+    # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
+    return round(cumulative_time * 1.3)
 
 
-def generating_path(origin_point, target_point):
+def calculate_total_cost(route):
+    # calculate total cost trip (ie. ERP)
+    erp_rates = fetch_all("http://datamall2.mytransport.sg/ltaodataservice/ERPRates")
+    vehicle_type = "Big Bus"
+    day_type = 'none'
+    cost = 0
+    zoneids = []
+    for node in ERP_NODES.keys():
+        if node in route:
+            zoneids.append(ERP_NODES[node])
+
+    #hardcoded for testing purpose
+    # # day_type = 'Weekdays'
+    # test_time = datetime(year=2023, month=7, day=6, hour=8, minute=30, second=0)
+    # current_time = test_time.time()
+
+    # Get the current date
+    today = datetime.now().date()
+    # Check if today is a weekday (Monday to Friday)
+    if today.weekday() < 5:
+        day_type = "Weekdays"
+    elif today.weekday() == 5:
+        day_type = "Saturday"
+
+    # Set the time zone to Singapore
+    sg_timezone = pytz.timezone('Asia/Singapore')
+
+    # Get the current time in Singapore
+    current_time = datetime.now(sg_timezone).time()
+    
+    for zoneid in zoneids:
+        for erp in erp_rates:
+            if zoneid in erp['ZoneID']:
+                if vehicle_type in erp['VehicleType']:
+                    if day_type in erp['DayType']:
+                        # Convert the start and end time strings to time objects
+                        start_time = datetime.strptime(erp['StartTime'], '%H:%M').time()
+                        end_time = datetime.strptime(erp['EndTime'], '%H:%M').time()
+                        if start_time <= current_time <= end_time:
+                            cost += float(erp['ChargeAmount'])
+                            break
+    return cost
+
+
+def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
-    create_graph_process.join()
+    # create_graph_process.join()
+
     # Load the pre-processed graph
     graph = ox.load_graphml('preprocessed_graph.graphml')
+
     # Get the nearest node in the OSMNX graph for the origin point
     origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
 
     # Get the nearest node in the OSMNX graph for the target point
     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
-    # Define the ERP nodes
-    erp_nodes = [1782376539, 6041619982]  # Replace with your specific ERP node IDs
-
-
     # Get the optimal path via Dijkstra's algorithm
-    route = dijkstra_shortest_path(graph, origin_node, target_node, erp_nodes)
+    route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
+
     total_distance = calculate_total_distance(graph, route)
-    print(total_distance)
     cumulative_time = calculate_cumulative_time(graph, route)
-    print("Cumulative time from A to B:", cumulative_time)
+    total_cost = calculate_total_cost(route)
     # Create the arrays for storing the paths
     lat = []
     long = []
@@ -137,7 +203,7 @@ def generating_path(origin_point, target_point):
         lat.append(point['y'])
 
     # Return the paths
-    return long, lat, total_distance, cumulative_time
+    return long, lat, total_distance, cumulative_time, total_cost
 
 
 def plot_map(origin_point, target_point, long, lat):
@@ -270,15 +336,26 @@ class Window(QtWidgets.QMainWindow):
         self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3116102100626978, 103.87927240561176])
         self.destination_dropdown.addItem("Min Wah Hotel", [1.3121928244165013, 103.88242907961897])
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
+
+        # Create the "Avoid Toll" title label
+        toll_label = QLabel("Avoid Toll", self)
+
+        # Create the "avoid toll" dropdown
+        self.toll_dropdown = QComboBox(self)
+        self.toll_dropdown.addItem("Yes", True)
+        self.toll_dropdown.addItem("No", False)
+
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
 
-        #display estimated time and distance
+        # display estimated time and distance
         self.info = QtWidgets.QVBoxLayout(self)
         self.label_time = QLabel("Estimated Time: -")
         self.label_distance = QLabel("Estimated Distance: -")
+        self.label_cost = QLabel("Estimated Cost: -")
         self.info.addWidget(self.label_time)
         self.info.addWidget(self.label_distance)
+        self.info.addWidget(self.label_cost)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(25, 25, 25, 25)
@@ -294,6 +371,8 @@ class Window(QtWidgets.QMainWindow):
         vlay.addWidget(self.source_dropdown)
         vlay.addWidget(destination_label)
         vlay.addWidget(self.destination_dropdown)
+        vlay.addWidget(toll_label)
+        vlay.addWidget(self.toll_dropdown)
         hlay = QtWidgets.QHBoxLayout()
         hlay.addWidget(findPathButton)
         vlay.addLayout(hlay)
@@ -316,21 +395,24 @@ class Window(QtWidgets.QMainWindow):
     def route_path(self):
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
+        toll = self.toll_dropdown.itemData(self.toll_dropdown.currentIndex())
         # Set the origin and target geocoordinate from which the paths are calculated
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        long, lat, total_dist, cumulative_time = generating_path(origin_point, target_point)
+        long, lat, total_dist, cumulative_time,total_cost = generating_path(origin_point, target_point, toll)
 
         plot_map(origin_point, target_point, long, lat)
         self.label_time.setText(f"Estimated Time: {cumulative_time} min")
         self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+        self.label_cost.setText(f"Estimated Cost: ${total_cost}")
         self.display_map('plot.html')
 
 
 if __name__ == "__main__":
-    create_graph_process = Process(target=create_graph)
-    create_graph_process.start()
+    # create_graph_process = Process(target=create_graph)
+    # create_graph_process.start()
+    # calculate_total_cost()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

@@ -48,9 +48,11 @@ def dijkstra_shortest_path(graph, source, target, toll):
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
     previous_nodes = {node: None for node in graph}
-
+    avg_speed_limit = 50.0
     priority_queue = [(0, source)]
     while priority_queue:
+        speed_weight_factor = 1 / avg_speed_limit
+        erp_weight_factor = 1
         current_distance, current_node = heapq.heappop(priority_queue)
 
         if current_node == target:
@@ -63,11 +65,14 @@ def dijkstra_shortest_path(graph, source, target, toll):
             if toll:
                 if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
                     continue
-
+            if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
+                rate = erp_rate(ERP_NODES[neighbor])
+                if rate != 0:
+                    erp_weight_factor = rate
             if 'maxspeed' in weight[0]:
-                distance = current_distance + weight[0]['length'] + float(weight[0]['maxspeed'])
-            else:
-                distance = current_distance + weight[0]['length']
+                max_speed = float(weight[0]['maxspeed'])
+                speed_weight_factor = 1 / max_speed  # Higher maximum speed results in a lower weight factor
+            distance = current_distance + weight[0]['length'] * speed_weight_factor * erp_weight_factor
             if distance < distances[neighbor]:
                 distances[neighbor] = distance
                 previous_nodes[neighbor] = current_node
@@ -93,11 +98,6 @@ def create_graph():
         os.remove('preprocessed_graph.graphml')
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
                                network_type=MODE, simplify=False)
-
-    # Assign ERP costs to the specified nodes
-    erp_cost = 2  # Set the ERP cost value according to your preference
-    for node in ERP_NODES.keys():
-        graph.nodes[node]['payment:erp'] = erp_cost
 
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
@@ -130,22 +130,12 @@ def calculate_cumulative_time(graph, path):
     return round(cumulative_time * 1.3)
 
 
-def calculate_total_cost(route):
-    # calculate total cost trip (ie. ERP)
+def erp_rate(zoneid):
+    # return erp rate
     erp_rates = fetch_all("http://datamall2.mytransport.sg/ltaodataservice/ERPRates")
     vehicle_type = "Big Bus"
     day_type = 'none'
     cost = 0
-    zoneids = []
-    for node in ERP_NODES.keys():
-        if node in route:
-            zoneids.append(ERP_NODES[node])
-
-    #hardcoded for testing purpose
-    # # day_type = 'Weekdays'
-    # test_time = datetime(year=2023, month=7, day=6, hour=8, minute=30, second=0)
-    # current_time = test_time.time()
-
     # Get the current date
     today = datetime.now().date()
     # Check if today is a weekday (Monday to Friday)
@@ -153,24 +143,37 @@ def calculate_total_cost(route):
         day_type = "Weekdays"
     elif today.weekday() == 5:
         day_type = "Saturday"
-
     # Set the time zone to Singapore
     sg_timezone = pytz.timezone('Asia/Singapore')
-
     # Get the current time in Singapore
     current_time = datetime.now(sg_timezone).time()
-    
+    # hardcoded for testing purpose
+    # day_type = 'Weekdays'
+    # test_time = datetime(year=2023, month=7, day=6, hour=8, minute=30, second=0)
+    # current_time = test_time.time()
+    for erp in erp_rates:
+        if zoneid in erp['ZoneID']:
+            if vehicle_type in erp['VehicleType']:
+                if day_type in erp['DayType']:
+                    # Convert the start and end time strings to time objects
+                    start_time = datetime.strptime(erp['StartTime'], '%H:%M').time()
+                    end_time = datetime.strptime(erp['EndTime'], '%H:%M').time()
+                    if start_time <= current_time <= end_time:
+                        cost = float(erp['ChargeAmount'])
+                        break
+    return cost
+
+
+def calculate_total_cost(route):
+    # calculate total cost trip (ie. ERP)
+    cost = 0
+    zoneids = []
+    for node in ERP_NODES.keys():
+        if node in route:
+            zoneids.append(ERP_NODES[node])
+
     for zoneid in zoneids:
-        for erp in erp_rates:
-            if zoneid in erp['ZoneID']:
-                if vehicle_type in erp['VehicleType']:
-                    if day_type in erp['DayType']:
-                        # Convert the start and end time strings to time objects
-                        start_time = datetime.strptime(erp['StartTime'], '%H:%M').time()
-                        end_time = datetime.strptime(erp['EndTime'], '%H:%M').time()
-                        if start_time <= current_time <= end_time:
-                            cost += float(erp['ChargeAmount'])
-                            break
+        cost += erp_rate(zoneid)
     return cost
 
 
@@ -400,7 +403,7 @@ class Window(QtWidgets.QMainWindow):
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        long, lat, total_dist, cumulative_time,total_cost = generating_path(origin_point, target_point, toll)
+        long, lat, total_dist, cumulative_time, total_cost = generating_path(origin_point, target_point, toll)
 
         plot_map(origin_point, target_point, long, lat)
         self.label_time.setText(f"Estimated Time: {cumulative_time} min")

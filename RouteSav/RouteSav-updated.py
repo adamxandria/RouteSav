@@ -118,7 +118,7 @@ def generating_path(origin_point, target_point):
     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
     # Define the ERP nodes
-    erp_nodes = [1782376539]  # Replace with your specific ERP node IDs
+    erp_nodes = [1782376539, 6041619982]  # Replace with your specific ERP node IDs
 
 
     # Get the optimal path via Dijkstra's algorithm

@@ -126,7 +126,7 @@ def calculate_cumulative_time(graph, path):
 
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
-    create_graph_process.join()
+    # create_graph_process.join()
     # Load the pre-processed graph
     graph = ox.load_graphml('preprocessed_graph.graphml')
     # Get the nearest node in the OSMNX graph for the origin point
@@ -170,23 +170,11 @@ def plot_map(origin_point, target_point, long, lat):
     fig = go.Figure(go.Scattermapbox(
         name="Origin",
         mode="markers",
-        lon=[origin_point[1]],
-        lat=[origin_point[0]],
+        lon=[long[0]],
+        lat=[lat[0]],
         showlegend=False,
         marker={'size': 16, 'color': "#333333"}
     )
-    )
-
-    # Plot  lines from the end of the path to the target
-    print("Generating lines...")
-    fig.add_trace(go.Scattermapbox(
-        name="Walking Line",
-        mode="lines",
-        lon=[origin_point[1], long[0]],
-        lat=[origin_point[0], lat[0]],
-        marker={'size': 10},
-        showlegend=False,
-        line=dict(width=4.5, color='#808080'))
     )
 
     # Plot the optimal paths to the map
@@ -207,21 +195,10 @@ def plot_map(origin_point, target_point, long, lat):
         name="Destination",
         mode="markers",
         showlegend=False,
-        lon=[target_point[1]],
-        lat=[target_point[0]],
+        lon=[long[-1]],
+        lat=[lat[-1]],
         marker={'size': 16, 'color': '#ff0000'}))
 
-    # Plot  lines from the end of the path to the target
-    print("Generating lines...")
-    fig.add_trace(go.Scattermapbox(
-        name="Walking Line",
-        mode="lines",
-        lon=[long[-1], target_point[1]],
-        lat=[lat[-1], target_point[0]],
-        marker={'size': 10},
-        showlegend=False,
-        line=dict(width=4.5, color='#808080'))
-    )
     # Style the map layout
     fig.update_layout(
         mapbox_style="streets",
@@ -246,7 +223,7 @@ def plot_map(origin_point, target_point, long, lat):
                       mapbox={
                           'center': {'lat': lat_center,
                                      'lon': long_center},
-                          'zoom': 12}
+                          'zoom': 12.5}
                       )
 
     # Save the figure as an HTML file
@@ -276,8 +253,8 @@ class Window(QtWidgets.QMainWindow):
         # Create the source dropdown
         self.source_dropdown = QComboBox(self)
         self.source_dropdown.addItem("Changi Airport Terminal 3", [1.350401, 103.9850091])
-        self.source_dropdown.addItem("ibis budget Singapore Pearl", [1.3116102100626978, 103.87927240561176])
-        self.source_dropdown.addItem("Min Wah Hotel", [1.3121928244165013, 103.88242907961897])
+        self.source_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
+        self.source_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
         self.source_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
 
         # Create the "Destination" title label
@@ -286,8 +263,8 @@ class Window(QtWidgets.QMainWindow):
         # Create the destination dropdown
         self.destination_dropdown = QComboBox(self)
         self.destination_dropdown.addItem("Changi Airport Terminal 3", [1.350401, 103.9850091])
-        self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3116102100626978, 103.87927240561176])
-        self.destination_dropdown.addItem("Min Wah Hotel", [1.3121928244165013, 103.88242907961897])
+        self.destination_dropdown.addItem("ibis budget Singapore Pearl", [1.3117510023367127, 103.87940230507937])
+        self.destination_dropdown.addItem("Min Wah Hotel", [1.312324970031862, 103.8824107783044])
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
 
         # Create the "Avoid Toll" title label

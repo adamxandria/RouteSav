@@ -205,17 +205,51 @@ def generating_path(origin_point, target_point, toll):
         long.append(point['x'])
         lat.append(point['y'])
 
-    # Return the paths
+    # Return the path route
     return long, lat, total_distance, cumulative_time, total_cost
 
+# Generate alternate path 
+def generating_alternate_path(origin_point, target_point, toll):
+    """load processed graph and use to calculate optimal route"""
+    # create_graph_process.join()
 
-def plot_map(origin_point, target_point, long, lat):
-    """plot route onto map"""
-    print(origin_point)
-    print(target_point)
-    print(long)
-    print(lat)
-    # Create a plotly map and add the origin point to the map
+    # Load the pre-processed graph
+    graph = ox.load_graphml('preprocessed_graph.graphml')
+
+    # Get the nearest node in the OSMNX graph for the origin point
+    origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
+
+    # Get the nearest node in the OSMNX graph for the target point
+    target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
+
+    # Get the optimal path via Dijkstra's algorithm
+    route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
+
+    a_total_distance = calculate_total_distance(graph, route)
+    a_cumulative_time = calculate_cumulative_time(graph, route)
+    a_total_cost = calculate_total_cost(route)
+    # Create the arrays for storing the paths
+    a_lat = []
+    a_long = []
+
+    for i in route:
+        point = graph.nodes[i]
+        a_long.append(point['x'])
+        a_lat.append(point['y'])
+
+    # Return the paths
+    return a_long, a_lat, a_total_distance, a_cumulative_time, a_total_cost
+
+
+
+
+
+
+
+
+
+def create_fig(origin_point):
+        # Create a plotly map and add the origin point to the map
     print("Plotting map...")
     fig = go.Figure(go.Scattermapbox(
         name="Origin",
@@ -226,6 +260,15 @@ def plot_map(origin_point, target_point, long, lat):
         marker={'size': 16, 'color': "#333333"}
     )
     )
+    return fig
+
+
+def plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, fig):
+    """plot route onto map"""
+    print(origin_point)
+    print(target_point)
+    print(long)
+    print(lat)
 
     # Plot  lines from the end of the path to the target
     print("Generating lines...")
@@ -261,18 +304,180 @@ def plot_map(origin_point, target_point, long, lat):
         lat=[target_point[0]],
         marker={'size': 16, 'color': '#ff0000'}))
 
-    # Plot  lines from the end of the path to the target
+    # erp path
+    # For plotting non_erp route        -----
+    print(origin_point)
+    print(target_point)
+    print(a_long)
+    print(a_lat)
+    
+    fig.add_trace(go.Scattermapbox(
+        name="Walking Line",
+        mode="lines",
+        lon=[origin_point[1], a_long[0]],
+        lat=[origin_point[0], a_lat[0]],
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#CCCCCC'))
+    )
+
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=a_long,
+        lat=a_lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#CCCCCC'))
+    )
+
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#CCCCCC'}))
+
+    return fig
+
+
+def plot_notoll_map(origin_point, target_point, long, lat, a_long, a_lat, fig):
+    """plot route onto map"""
+    print(origin_point)
+    print(target_point)
+    print(a_long)
+    print(a_lat)
+
+    # Plot for non-erp path
+    # Plot lines from the end of the path to the target
     print("Generating lines...")
     fig.add_trace(go.Scattermapbox(
         name="Walking Line",
         mode="lines",
-        lon=[long[-1], target_point[1]],
-        lat=[lat[-1], target_point[0]],
+        lon=[origin_point[1], a_long[0]],
+        lat=[origin_point[0], a_lat[0]],
         marker={'size': 10},
         showlegend=False,
         line=dict(width=4.5, color='#808080'))
     )
+
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=a_long,
+        lat=a_lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#ff0000'))
+    )
+
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#ff0000'}))
+
+
+    
+    print(origin_point)
+    print(target_point)
+    print(long)
+    print(lat)
+
+    # For plotting erp route -----
+    # Plot lines from the end of the path to the target
+    fig.add_trace(go.Scattermapbox(
+        name="Walking Line",
+        mode="lines",
+        lon=[origin_point[1], long[0]],
+        lat=[origin_point[0], lat[0]],
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#CCCCCC'))
+    )
+
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=long,
+        lat=lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#CCCCCC'))
+    )
+
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#CCCCCC'}))
+    
+    return fig
+
+def plot_normal_map(origin_point, target_point, long, lat,fig):
+    """plot route onto map"""
+    print(origin_point)
+    print(target_point)
+    print(long)
+    print(lat)
+
+    # Plot for non-erp path
+    # Plot lines from the end of the path to the target
+    print("Generating lines...")
+    fig.add_trace(go.Scattermapbox(
+        name="Walking Line",
+        mode="lines",
+        lon=[origin_point[1], long[0]],
+        lat=[origin_point[0], lat[0]],
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#808080'))
+    )
+
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=long,
+        lat=lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#ff0000'))
+    )
+
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#ff0000'}))
+    
+    return fig
+
+def update_map(fig, long, lat):
     # Style the map layout
+    print('update map')
     fig.update_layout(
         mapbox_style="streets",
         mapbox_accesstoken="pk.eyJ1IjoiYWRhbXhhbmRyaWEiLCJhIjoiY2xqanRhbHpkMGFzbDNsbXU5bGxvaG9kcyJ9.0kKSEs9qPLBECjCqbNZ68A",
@@ -403,12 +608,31 @@ class Window(QtWidgets.QMainWindow):
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        long, lat, total_dist, cumulative_time, total_cost = generating_path(origin_point, target_point, toll)
+        # this is to generate route WITH toll
+        long, lat, total_dist, cumulative_time, total_cost = generating_path(origin_point, target_point, True)
+        # this is to generate route with NO toll
+        a_long, a_lat, a_total_dist, a_cumulative_time, a_total_cost = generating_alternate_path(origin_point, target_point, False)
+        print('this is path with toll: ', total_cost)
+        print('this is path with toll: ', a_total_cost)
 
-        plot_map(origin_point, target_point, long, lat)
-        self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-        self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-        self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+        # NOTE : It will only show alternate path if there is a cost difference as live data of ERP 
+        # = must see the timing if there is ERP then will see alternate path
+        if total_cost == a_total_cost:
+            update_map(plot_normal_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
+            self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+            self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+            self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+        elif toll:
+            update_map(plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)), long, lat)
+            self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+            self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+            self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+        elif toll == False:
+            update_map(plot_notoll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)), long, lat)
+            self.label_time.setText(f"Estimated Time: {a_cumulative_time} min")
+            self.label_distance.setText(f"Estimated Distance: {a_total_dist} km")
+            self.label_cost.setText(f"Estimated Cost: ${a_total_cost}")
+
         self.display_map('plot.html')
 
 
@@ -420,3 +644,6 @@ if __name__ == "__main__":
     window = Window()
     window.show()
     sys.exit(App.exec())
+
+
+# put the grey and red drawing in one function thennnnnnnnnn do if else  to choose which seq

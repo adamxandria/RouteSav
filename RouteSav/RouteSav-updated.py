@@ -431,7 +431,51 @@ def plot_notoll_map(origin_point, target_point, long, lat, a_long, a_lat, fig):
     
     return fig
 
-def plot_normal_map(origin_point, target_point, long, lat,fig):
+def plot_norm_noToll_map(origin_point, target_point, long, lat,fig):
+    """plot route onto map"""
+    print(origin_point)
+    print(target_point)
+    print(long)
+    print(lat)
+
+    # Plot for non-erp path
+    # Plot lines from the end of the path to the target
+    print("Generating lines...")
+    fig.add_trace(go.Scattermapbox(
+        name="Walking Line",
+        mode="lines",
+        lon=[origin_point[1], long[0]],
+        lat=[origin_point[0], lat[0]],
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#808080'))
+    )
+
+    # Plot the optimal paths to the map
+    print("Generating paths.....")
+    fig.add_trace(go.Scattermapbox(
+        name="Path",
+        mode="lines",
+        lon=long,
+        lat=lat,
+        marker={'size': 10},
+        showlegend=False,
+        line=dict(width=4.5, color='#ff0000'))
+    )
+
+    # Plot the target geocoordinates to the map
+    print("Generating target...")
+    fig.add_trace(go.Scattermapbox(
+        name="Destination",
+        mode="markers",
+        showlegend=False,
+        lon=[target_point[1]],
+        lat=[target_point[0]],
+        marker={'size': 16, 'color': '#ff0000'}))
+    
+    return fig
+
+def plot_norm_toll_map(origin_point, target_point, long, lat,fig):
     """plot route onto map"""
     print(origin_point)
     print(target_point)
@@ -618,10 +662,17 @@ class Window(QtWidgets.QMainWindow):
         # NOTE : It will only show alternate path if there is a cost difference as live data of ERP 
         # = must see the timing if there is ERP then will see alternate path
         if total_cost == a_total_cost:
-            update_map(plot_normal_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
-            self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-            self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-            self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+            if cumulative_time>a_cumulative_time:
+                update_map(plot_norm_noToll_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
+                self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+                self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+                self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+            elif a_cumulative_time>cumulative_time:
+                update_map(plot_norm_toll_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
+                self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+                self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+                self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+
         elif toll:
             update_map(plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)), long, lat)
             self.label_time.setText(f"Estimated Time: {cumulative_time} min")

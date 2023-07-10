@@ -45,22 +45,31 @@ def fetch_all(url):
 
 
 def dijkstra_shortest_path(graph, source, target, toll):
+    # Initialize distances to infinity for all nodes except the source node
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
+
+    incidents = get_incidents()
+    # dict to keep track of prev nodes in shortest path
     previous_nodes = {node: None for node in graph}
     avg_speed_limit = 50.0
+    # queue to store nodes based on dist
     priority_queue = [(0, source)]
     while priority_queue:
         speed_weight_factor = 1 / avg_speed_limit
         erp_weight_factor = 1
+        # get node with smallest dist from queue
         current_distance, current_node = heapq.heappop(priority_queue)
 
+        # if reach target node, exit
         if current_node == target:
             break
 
+        # skip iteration if current dist > dist to current node
         if current_distance > distances[current_node]:
             continue
 
+        # explore neighbours of current node
         for neighbor, weight in graph[current_node].items():
             if toll:
                 if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
@@ -69,10 +78,18 @@ def dijkstra_shortest_path(graph, source, target, toll):
                 rate = erp_rate(ERP_NODES[neighbor])
                 if rate != 0:
                     erp_weight_factor = rate
+            
+            # Calculate the dist to the neighbor node, if maxspeed in weight
             if 'maxspeed' in weight[0]:
                 max_speed = float(weight[0]['maxspeed'])
                 speed_weight_factor = 1 / max_speed  # Higher maximum speed results in a lower weight factor
             distance = current_distance + weight[0]['length'] * speed_weight_factor * erp_weight_factor
+            
+            # Adjust weight if neighbor node is an incident node
+            if neighbor in incidents:
+                distance += 1000  # Increase the distance to avoid incident nodes
+
+            # Update dist and prev node if new distance shorter
             if distance < distances[neighbor]:
                 distances[neighbor] = distance
                 previous_nodes[neighbor] = current_node
@@ -81,11 +98,13 @@ def dijkstra_shortest_path(graph, source, target, toll):
     if distances[target] == float('inf'):
         return None  # No path found
 
+    # Reconstruct the path from the target node to the source node
     path = []
     current_node = target
     while current_node is not None:
         path.append(current_node)
         current_node = previous_nodes[current_node]
+    # reverse path from src to target
     path.reverse()
 
     return path
@@ -240,14 +259,6 @@ def generating_alternate_path(origin_point, target_point, toll):
     # Return the paths
     return a_long, a_lat, a_total_distance, a_cumulative_time, a_total_cost
 
-
-
-
-
-
-
-
-
 def create_fig(origin_point):
         # Create a plotly map and add the origin point to the map
     print("Plotting map...")
@@ -345,6 +356,62 @@ def plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, fig):
 
     return fig
 
+def get_nearest_incident_node(incident_coord):
+    graph = ox.load_graphml('preprocessed_graph.graphml')
+
+    # array to store incident nodes
+    incident_nodes = []
+
+    # Find nearest node for each incident_coord
+    for incident_latitude, incident_longitude in incident_coord:
+        # Find the nearest node from OSMnx graph
+        nearest_node = ox.distance.nearest_nodes(graph, incident_longitude, incident_latitude)
+
+        # Get the node coordinates
+        node_data = graph.nodes[nearest_node]
+        nearest_node_latitude = node_data['y']
+        nearest_node_longitude = node_data['x']
+
+        # append node to array
+        incident_nodes.append([nearest_node, nearest_node_latitude, nearest_node_longitude])
+
+    return incident_nodes
+
+def get_incidents():
+    # Define the API endpoint URL
+    url = 'http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents'
+
+    # Add API key to request headers
+    headers = {'AccountKey': '3+bECt1yQROLKXbGnk8/Jw=='}
+
+    # Send the GET request to the API
+    response = requests.get(url, headers=headers)
+
+    # if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Extract the traffic incident data from the response
+        data = response.json()
+
+        # Access the traffic incident information
+        incidents = data['value']
+        
+        # array to store incidents coordinates
+        incident_coord = [] 
+
+        # array to store incident nodes
+        incident_nodes = []
+
+        # Process the traffic incident data
+        for incident in incidents:
+            incident_coord.append([incident['Latitude'], incident['Longitude']])
+
+        # get nearest node based on coordinates from API
+        incident_nodes = get_nearest_incident_node(incident_coord)
+
+        return incident_nodes
+    else:
+        # Handle the request error
+        print(f"Request failed with status code: {response.status_code}")
 
 def plot_notoll_map(origin_point, target_point, long, lat, a_long, a_lat, fig):
     """plot route onto map"""

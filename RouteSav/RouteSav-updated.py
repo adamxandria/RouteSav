@@ -44,7 +44,7 @@ def fetch_all(url):
     return results
 
 
-def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
+def dijkstra_shortest_path(graph, source, target, toll, incident_nodes, nodes_to_avoid):
     # Initialize distances to infinity for all nodes except the source node
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
@@ -73,6 +73,8 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
 
         # explore neighbours of current node
         for neighbor, weight in graph[current_node].items():
+            if neighbor in nodes_to_avoid:
+                continue
             if toll:
                 if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
                     continue
@@ -106,8 +108,23 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
         current_node = previous_nodes[current_node]
     # reverse path from src to target
     current_path.reverse()
-    paths = []
-    paths.append(current_path)
+
+    if len(current_path) > 1:
+        # Check if the node splits into two paths
+        # prev_node = current_path[-2]
+        # next_node = current_path[1]
+        for i in range(len(current_path) - 1):
+            node = current_path[i]
+            next_node = current_path[i + 1]
+            # num_of_ways = len(graph[node].items())
+            items = list(graph[node].items())
+            if len(items) > 1:
+
+                for item, edge in items:
+                    if item == next_node and 'motorway' in edge[0]['highway']:
+                        nodes_to_avoid.append(item)
+    # paths = []
+    # paths.append(current_path)
     # for testing purpose
     # paths.append(
     #     [5150138417, 5150138416, 1838411380, 6992456898, 5150445925, 5150404767, 1842918201, 1842918210, 10196780610,
@@ -148,7 +165,9 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
     #      6240913299, 254641217, 6240913298, 6240913297, 6240913296, 6240913295, 6240913294, 6240913293, 6240913292,
     #      6240913288, 4321593140, 6240913289, 6240913291, 6240913290, 172548978, 172549005, 172549035, 172549056,
     #      3941568439, 6240778256, 254641180, 8140719535, 3979471587])
-    return paths
+
+
+    return current_path, nodes_to_avoid
 
 
 def create_graph():
@@ -244,6 +263,9 @@ def calculate_total_cost(route):
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
     # create_graph_process.join()
+    paths = []
+    routes = []
+    nodes_to_avoid = []
 
     # Load the pre-processed graph
     graph = ox.load_graphml('preprocessed_graph.graphml')
@@ -256,8 +278,11 @@ def generating_path(origin_point, target_point, toll):
 
     incident_nodes = get_incidents(graph)
     # Get the optimal path via Dijkstra's algorithm
-    paths = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes)
-    routes = []
+    path, nodes_to_avoid = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes, nodes_to_avoid)
+    paths.append(path)
+    path, nodes_to_avoid = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes, nodes_to_avoid)
+    paths.append(path)
+
     for path in paths:
         total_distance = calculate_total_distance(graph, path)
         cumulative_time = calculate_cumulative_time(graph, path, incident_nodes)
@@ -271,7 +296,7 @@ def generating_path(origin_point, target_point, toll):
             lat.append(point['y'])
         routes.append((long, lat, total_distance, cumulative_time, total_cost))
 
-    # Return the path route
+    # Return the route route
     return routes
 
 

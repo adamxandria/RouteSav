@@ -295,8 +295,22 @@ def generating_path(origin_point, target_point, toll):
             long.append(point['x'])
             lat.append(point['y'])
         routes.append((long, lat, total_distance, cumulative_time, total_cost))
-
-    # Return the route route
+    
+    # swap the first in array to be the top priority
+    time1 = float(routes[0][3])
+    time2 = float(routes[1][3])
+    distance1 = float(routes[0][2])
+    distance2 = float(routes[1][2])
+    erp1 = float(routes[0][4])
+    erp2 = float(routes[1][4])
+    # swap to print the red line above the grey
+    if time1 < time2:
+        routes[0], routes[1] = routes[1], routes[0]
+    elif time1 == time2 and distance1 < distance2:
+        routes[0], routes[1] = routes[1], routes[0]
+    elif time1 == time2 and distance1 == distance2 and erp1 < erp2:
+        routes[0], routes[1] = routes[1], routes[0]
+    # Return the route route    
     return routes
 
 
@@ -375,18 +389,31 @@ def plot_map(origin_point, target_point, routes):
     #     showlegend=False,
     #     line=dict(width=4.5, color='#808080'))
     # )
-    for long, lat, _, _, _ in routes:
+    for index, route in enumerate(routes):
+        long, lat, _, _, _ = route
         # Plot the optimal paths to the map
         print("Generating paths.....")
-        fig.add_trace(go.Scattermapbox(
+        if index == 0:
+            fig.add_trace(go.Scattermapbox(
             name="Path",
             mode="lines",
             lon=long,
             lat=lat,
             marker={'size': 10},
             showlegend=False,
-            line=dict(width=4.5, color='#ff0000'))
-        )
+            line=dict(width=4.5, color='#CCCCCC'))
+            )
+        
+        else:
+            fig.add_trace(go.Scattermapbox(
+                name="Path",
+                mode="lines",
+                lon=long,
+                lat=lat,
+                marker={'size': 10},
+                showlegend=False,
+                line=dict(width=4.5, color='#ff0000'))
+            )
 
     # Plot the target geocoordinates to the map
     print("Generating target...")
@@ -492,6 +519,7 @@ class Window(QtWidgets.QMainWindow):
         self.toll_dropdown.addItem("Yes", True)
         self.toll_dropdown.addItem("No", False)
 
+
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
 
@@ -549,13 +577,28 @@ class Window(QtWidgets.QMainWindow):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-        for _, _, total_dist, cumulative_time, total_cost in routes:
+
+        # swap the sequence back
+        routes[0], routes[1] = routes[1], routes[0]
+
+        for index, route in enumerate(routes):
+            if index == 0:
+                self.red_label = QLabel("In red:", self)
+                self.infolay.addWidget(self.red_label)
+            else:
+                self.grey_label = QLabel("In grey:", self)
+                self.infolay.addWidget(self.grey_label)
+
+            _, _, total_dist, cumulative_time, total_cost = route
             self.label_time = QLabel(f"Estimated Time: {cumulative_time} min")
             self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
             self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
             self.infolay.addWidget(self.label_time)
             self.infolay.addWidget(self.label_distance)
             self.infolay.addWidget(self.label_cost)
+
+
+
         # this is to generate route with NO toll
         # a_long, a_lat, a_total_dist, a_cumulative_time, a_total_cost = generating_alternate_path(origin_point, target_point, False)
         # print('this is path with toll: ', total_cost)

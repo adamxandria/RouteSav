@@ -731,15 +731,19 @@ class Window(QtWidgets.QMainWindow):
         if total_cost == a_total_cost:
             if cumulative_time>a_cumulative_time:
                 update_map(plot_norm_noToll_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
-                self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-                self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-                self.label_cost.setText(f"Estimated Cost: ${total_cost}")
+                self.label_time.setText(f"Estimated Time: {a_cumulative_time} min")
+                self.label_distance.setText(f"Estimated Distance: {a_total_dist} km")
+                self.label_cost.setText(f"Estimated Cost: ${a_total_cost}")
             elif a_cumulative_time>cumulative_time:
                 update_map(plot_norm_toll_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
                 self.label_time.setText(f"Estimated Time: {cumulative_time} min")
                 self.label_distance.setText(f"Estimated Distance: {total_dist} km")
                 self.label_cost.setText(f"Estimated Cost: ${total_cost}")
-
+            elif a_cumulative_time == cumulative_time:
+                update_map(plot_norm_toll_map(origin_point, target_point, long, lat,create_fig(origin_point)), long, lat)
+                self.label_time.setText(f"Estimated Time: {cumulative_time} min")
+                self.label_distance.setText(f"Estimated Distance: {total_dist} km")
+                self.label_cost.setText(f"Estimated Cost: ${total_cost}")
         elif toll:
             update_map(plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)), long, lat)
             self.label_time.setText(f"Estimated Time: {cumulative_time} min")
@@ -763,5 +767,3 @@ if __name__ == "__main__":
     window.show()
     sys.exit(App.exec())
 
-
-# put the grey and red drawing in one function thennnnnnnnnn do if else  to choose which seq

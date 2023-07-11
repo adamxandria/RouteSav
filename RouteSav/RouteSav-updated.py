@@ -44,20 +44,22 @@ def fetch_all(url):
     return results
 
 
-def dijkstra_shortest_path(graph, source, target, toll):
+def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
     # Initialize distances to infinity for all nodes except the source node
     distances = {node: float('inf') for node in graph}
     distances[source] = 0
-
-    # incidents = get_incidents()
-    # # dict to keep track of prev nodes in shortest path
+    # dict to keep track of prev nodes in shortest path
     previous_nodes = {node: None for node in graph}
     avg_speed_limit = 50.0
+    #incident node for testing, minwah, dont avoid toll
+    # incident_nodes.append(7153273679)
+    # incident_nodes.append(5918708421)
     # queue to store nodes based on dist
     priority_queue = [(0, source)]
     while priority_queue:
         speed_weight_factor = 1 / avg_speed_limit
         erp_weight_factor = 1
+        incident_weight_factor = 1
         # get node with smallest dist from queue
         current_distance, current_node = heapq.heappop(priority_queue)
 
@@ -78,16 +80,13 @@ def dijkstra_shortest_path(graph, source, target, toll):
                 rate = erp_rate(ERP_NODES[neighbor])
                 if rate != 0:
                     erp_weight_factor = rate
-
+            if neighbor in incident_nodes:
+                incident_weight_factor = 5.25
             # Calculate the dist to the neighbor node, if maxspeed in weight
             if 'maxspeed' in weight[0]:
                 max_speed = float(weight[0]['maxspeed'])
                 speed_weight_factor = 1 / max_speed  # Higher maximum speed results in a lower weight factor
-            distance = current_distance + weight[0]['length'] * speed_weight_factor * erp_weight_factor
-
-            # # Adjust weight if neighbor node is an incident node
-            # if neighbor in incidents:
-            #     distance += 1000  # Increase the distance to avoid incident nodes
+            distance = current_distance + weight[0]['length'] * speed_weight_factor * erp_weight_factor * incident_weight_factor
 
             # Update dist and prev node if new distance shorter
             if distance < distances[neighbor]:
@@ -99,61 +98,60 @@ def dijkstra_shortest_path(graph, source, target, toll):
         return None  # No path found
 
     # Reconstruct the path from the target node to the source node
-    path = []
+    current_path = []
     current_node = target
     while current_node is not None:
-        path.append(current_node)
+        current_path.append(current_node)
         current_node = previous_nodes[current_node]
     # reverse path from src to target
-    path.reverse()
+    current_path.reverse()
     paths = []
-    paths.append(path)
-    # print(path)
-    paths.append(
-        [5150138417, 5150138416, 1838411380, 6992456898, 5150445925, 5150404767, 1842918201, 1842918210, 10196780610,
-         1838411703, 10196780609, 7301014995, 5636769820, 1838411762, 4652670849, 1842918227, 1842918228, 2485945714,
-         5636769812, 1842918231, 1838411984, 1838412024, 1838412141, 5636542202, 1838412191, 1842918236, 10195306045,
-         1838412227, 10195306046, 1842918239, 10195306047, 1838412230, 1842918237, 10195306048, 1838412184, 5227344425,
-         1842918232, 10195306049, 10195306050, 1838412107, 10195306051, 1838412075, 10195306052, 10195306053,
-         2478513962, 5636769816, 5150138727, 5150138729, 5150138730, 5150138731, 1838411781, 1838411772, 1838411748,
-         1842906316, 6992456893, 6992456892, 6992456891, 1838411671, 6992385960, 6992385959, 5636817150, 5636817149,
-         25451905, 6992385958, 1842899767, 6496823166, 243497292, 1838410788, 1838410519, 6987340823, 1842899750,
-         243497290, 882801526, 25451907, 139743964, 6076049011, 6076049012, 1726750768, 10197135451, 10197135450,
-         395050812, 1726750767, 10197135449, 139743938, 395050814, 10197135448, 139743909, 10197135447, 10197135446,
-         139743885, 10197135445, 395050816, 139743858, 10197135444, 395050817, 5636542207, 139743828, 395050818,
-         10197135440, 10197135441, 139743799, 10197135442, 395050820, 10197135443, 10197135439, 139743781, 10197135438,
-         395050821, 10197135437, 10197135436, 395050822, 395050919, 395050030, 10197166951, 1726742346, 158103565,
-         139743641, 440597432, 440597435, 6096410528, 247658317, 137481580, 395051977, 137481581, 395052011, 247658316,
-         137481582, 7153273680, 7153273679, 137481583, 6064253651, 137481585, 137481586, 395052063, 1726722152,
-         395052055, 137481589, 395048969, 395048738, 137481591, 395048981, 1726722161, 627795060, 9277371567,
-         9277371581, 9277371582, 9277371568, 9277371583, 9277371569, 9277371570, 9277371580, 9277371571, 9277371584,
-         9277371572, 9277371585, 9277371573, 9277371586, 9277371575, 9277371576, 9277371574, 9277371578, 9277371577,
-         9277371579, 9277371589, 9277371588, 137481612, 137481613, 1726691755, 137481615, 1726691753, 137481616,
-         137481619, 137481620, 6095695762, 6095695763, 137481621, 1726679274, 395218241, 7168379407, 137481625,
-         1726643058, 137481628, 7616973900, 7616973901, 1726635936, 7616973903, 137481629, 1726635910, 1726635904,
-         7616973907, 7616973899, 137481630, 7616973898, 626502583, 6073213644, 570022290, 570022283, 6515369232,
-         6515369231, 1726635953, 7574144955, 626502534, 5138605850, 1726635946, 1726635938, 139642003, 8608560385,
-         1726635913, 8671109612, 5138605849, 8872806639, 139642024, 8608560382, 139642038, 5641007306, 8608560381,
-         5138605848, 139642059, 5653328302, 570016123, 5653328310, 5653328311, 139642109, 139642136, 7436708134,
-         139642155, 1196689054, 1196689060, 5918708421, 139642180, 139642198, 7874566863, 7413307470, 7413307469,
-         570016508, 1726587059, 1196689059, 570016554, 570016551, 1726586993, 5950406070, 1726586963, 139642229,
-         6041619982, 139642252, 139642275, 7488951606, 246960846, 6076436393, 1726447167, 6136264940, 6136264941,
-         6136264939, 386952492, 6144567595, 6144567594, 1726447164, 246961162, 386951350, 5231538612, 246961163,
-         6806921292, 1726447160, 246961164, 6528701386, 4850186849, 5972512728, 5231538613, 882267825, 5233759421,
-         1726563965, 4604229260, 4604229261, 5233758718, 4604229254, 4604229259, 6117505138, 4696061295, 7226500299,
-         5952771427, 8189403292, 4604229255, 8189403291, 4696131103, 8189403306, 8189403304, 5282548952, 4696131102,
-         4696157257, 8157231795, 5683756991, 8157217820, 8157231783, 5683756990, 8157231782, 5683756989, 5683756988,
-         8157231778, 5683756987, 7071413498, 7071413497, 5683756986, 7276105082, 5683756985, 8163659262, 5683756984,
-         5683756983, 6974177578, 7071400840, 8163659256, 5683756982, 7071400839, 8163517946, 240713297, 5229319797,
-         6240913299, 254641217, 6240913298, 6240913297, 6240913296, 6240913295, 6240913294, 6240913293, 6240913292,
-         6240913288, 4321593140, 6240913289, 6240913291, 6240913290, 172548978, 172549005, 172549035, 172549056,
-         3941568439, 6240778256, 254641180, 8140719535, 3979471587])
+    paths.append(current_path)
+    #for testing purpose
+    # paths.append(
+    #     [5150138417, 5150138416, 1838411380, 6992456898, 5150445925, 5150404767, 1842918201, 1842918210, 10196780610,
+    #      1838411703, 10196780609, 7301014995, 5636769820, 1838411762, 4652670849, 1842918227, 1842918228, 2485945714,
+    #      5636769812, 1842918231, 1838411984, 1838412024, 1838412141, 5636542202, 1838412191, 1842918236, 10195306045,
+    #      1838412227, 10195306046, 1842918239, 10195306047, 1838412230, 1842918237, 10195306048, 1838412184, 5227344425,
+    #      1842918232, 10195306049, 10195306050, 1838412107, 10195306051, 1838412075, 10195306052, 10195306053,
+    #      2478513962, 5636769816, 5150138727, 5150138729, 5150138730, 5150138731, 1838411781, 1838411772, 1838411748,
+    #      1842906316, 6992456893, 6992456892, 6992456891, 1838411671, 6992385960, 6992385959, 5636817150, 5636817149,
+    #      25451905, 6992385958, 1842899767, 6496823166, 243497292, 1838410788, 1838410519, 6987340823, 1842899750,
+    #      243497290, 882801526, 25451907, 139743964, 6076049011, 6076049012, 1726750768, 10197135451, 10197135450,
+    #      395050812, 1726750767, 10197135449, 139743938, 395050814, 10197135448, 139743909, 10197135447, 10197135446,
+    #      139743885, 10197135445, 395050816, 139743858, 10197135444, 395050817, 5636542207, 139743828, 395050818,
+    #      10197135440, 10197135441, 139743799, 10197135442, 395050820, 10197135443, 10197135439, 139743781, 10197135438,
+    #      395050821, 10197135437, 10197135436, 395050822, 395050919, 395050030, 10197166951, 1726742346, 158103565,
+    #      139743641, 440597432, 440597435, 6096410528, 247658317, 137481580, 395051977, 137481581, 395052011, 247658316,
+    #      137481582, 7153273680, 7153273679, 137481583, 6064253651, 137481585, 137481586, 395052063, 1726722152,
+    #      395052055, 137481589, 395048969, 395048738, 137481591, 395048981, 1726722161, 627795060, 9277371567,
+    #      9277371581, 9277371582, 9277371568, 9277371583, 9277371569, 9277371570, 9277371580, 9277371571, 9277371584,
+    #      9277371572, 9277371585, 9277371573, 9277371586, 9277371575, 9277371576, 9277371574, 9277371578, 9277371577,
+    #      9277371579, 9277371589, 9277371588, 137481612, 137481613, 1726691755, 137481615, 1726691753, 137481616,
+    #      137481619, 137481620, 6095695762, 6095695763, 137481621, 1726679274, 395218241, 7168379407, 137481625,
+    #      1726643058, 137481628, 7616973900, 7616973901, 1726635936, 7616973903, 137481629, 1726635910, 1726635904,
+    #      7616973907, 7616973899, 137481630, 7616973898, 626502583, 6073213644, 570022290, 570022283, 6515369232,
+    #      6515369231, 1726635953, 7574144955, 626502534, 5138605850, 1726635946, 1726635938, 139642003, 8608560385,
+    #      1726635913, 8671109612, 5138605849, 8872806639, 139642024, 8608560382, 139642038, 5641007306, 8608560381,
+    #      5138605848, 139642059, 5653328302, 570016123, 5653328310, 5653328311, 139642109, 139642136, 7436708134,
+    #      139642155, 1196689054, 1196689060, 5918708421, 139642180, 139642198, 7874566863, 7413307470, 7413307469,
+    #      570016508, 1726587059, 1196689059, 570016554, 570016551, 1726586993, 5950406070, 1726586963, 139642229,
+    #      6041619982, 139642252, 139642275, 7488951606, 246960846, 6076436393, 1726447167, 6136264940, 6136264941,
+    #      6136264939, 386952492, 6144567595, 6144567594, 1726447164, 246961162, 386951350, 5231538612, 246961163,
+    #      6806921292, 1726447160, 246961164, 6528701386, 4850186849, 5972512728, 5231538613, 882267825, 5233759421,
+    #      1726563965, 4604229260, 4604229261, 5233758718, 4604229254, 4604229259, 6117505138, 4696061295, 7226500299,
+    #      5952771427, 8189403292, 4604229255, 8189403291, 4696131103, 8189403306, 8189403304, 5282548952, 4696131102,
+    #      4696157257, 8157231795, 5683756991, 8157217820, 8157231783, 5683756990, 8157231782, 5683756989, 5683756988,
+    #      8157231778, 5683756987, 7071413498, 7071413497, 5683756986, 7276105082, 5683756985, 8163659262, 5683756984,
+    #      5683756983, 6974177578, 7071400840, 8163659256, 5683756982, 7071400839, 8163517946, 240713297, 5229319797,
+    #      6240913299, 254641217, 6240913298, 6240913297, 6240913296, 6240913295, 6240913294, 6240913293, 6240913292,
+    #      6240913288, 4321593140, 6240913289, 6240913291, 6240913290, 172548978, 172549005, 172549035, 172549056,
+    #      3941568439, 6240778256, 254641180, 8140719535, 3979471587])
     return paths
 
 
 def create_graph():
     """use osmnx to pull map data and process to graph"""
-
     if os.path.exists('preprocessed_graph.graphml'):
         os.remove('preprocessed_graph.graphml')
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
@@ -173,9 +171,12 @@ def calculate_total_distance(graph, path):
     return "{:.2f}".format(total_distance)
 
 
-def calculate_cumulative_time(graph, path):
+def calculate_cumulative_time(graph, path, incident_nodes):
     cumulative_time = 0
+    num_incident_nodes_passed = 0
     for i in range(len(path) - 1):
+        if path[i] in incident_nodes:
+            num_incident_nodes_passed += 1
         node1 = path[i]
         node2 = path[i + 1]
         edge_data = graph[node1][node2][0]
@@ -187,7 +188,9 @@ def calculate_cumulative_time(graph, path):
         edge_time = edge_length / edge_speed * 60
         cumulative_time += edge_time
     # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
-    return round(cumulative_time * 1.3)
+    # additional 3 min for every incident node passed
+    print(num_incident_nodes_passed)
+    return round(cumulative_time * 1.3 + (num_incident_nodes_passed*3))
 
 
 def erp_rate(zoneid):
@@ -250,12 +253,13 @@ def generating_path(origin_point, target_point, toll):
     # Get the nearest node in the OSMNX graph for the target point
     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
 
+    incident_nodes = get_incidents(graph)
     # Get the optimal path via Dijkstra's algorithm
-    paths = dijkstra_shortest_path(graph, origin_node, target_node, toll)
+    paths = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes)
     routes = []
     for path in paths:
         total_distance = calculate_total_distance(graph, path)
-        cumulative_time = calculate_cumulative_time(graph, path)
+        cumulative_time = calculate_cumulative_time(graph, path, incident_nodes)
         total_cost = calculate_total_cost(path)
         lat = []
         long = []
@@ -271,95 +275,52 @@ def generating_path(origin_point, target_point, toll):
 
 
 # Generate alternate path
-def generating_alternate_path(origin_point, target_point, toll):
-    """load processed graph and use to calculate optimal route"""
-    # create_graph_process.join()
+# def generating_alternate_path(origin_point, target_point, toll):
+#     """load processed graph and use to calculate optimal route"""
+#     # create_graph_process.join()
+#
+#     # Load the pre-processed graph
+#     graph = ox.load_graphml('preprocessed_graph.graphml')
+#
+#     # Get the nearest node in the OSMNX graph for the origin point
+#     origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
+#
+#     # Get the nearest node in the OSMNX graph for the target point
+#     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
+#
+#     # Get the optimal path via Dijkstra's algorithm
+#     route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
+#
+#     a_total_distance = calculate_total_distance(graph, route)
+#     a_cumulative_time = calculate_cumulative_time(graph, route)
+#     a_total_cost = calculate_total_cost(route)
+#     # Create the arrays for storing the paths
+#     a_lat = []
+#     a_long = []
+#
+#     for i in route:
+#         point = graph.nodes[i]
+#         a_long.append(point['x'])
+#         a_lat.append(point['y'])
+#
+#     # Return the paths
+#     return a_long, a_lat, a_total_distance, a_cumulative_time, a_total_cost
 
-    # Load the pre-processed graph
-    graph = ox.load_graphml('preprocessed_graph.graphml')
-
-    # Get the nearest node in the OSMNX graph for the origin point
-    origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
-
-    # Get the nearest node in the OSMNX graph for the target point
-    target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
-
-    # Get the optimal path via Dijkstra's algorithm
-    route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
-
-    a_total_distance = calculate_total_distance(graph, route)
-    a_cumulative_time = calculate_cumulative_time(graph, route)
-    a_total_cost = calculate_total_cost(route)
-    # Create the arrays for storing the paths
-    a_lat = []
-    a_long = []
-
-    for i in route:
-        point = graph.nodes[i]
-        a_long.append(point['x'])
-        a_lat.append(point['y'])
-
-    # Return the paths
-    return a_long, a_lat, a_total_distance, a_cumulative_time, a_total_cost
-
-
-def get_nearest_incident_node(incident_coord):
-    graph = ox.load_graphml('preprocessed_graph.graphml')
-
-    # array to store incident nodes
-    incident_nodes = []
-
-    # Find nearest node for each incident_coord
-    for incident_latitude, incident_longitude in incident_coord:
-        # Find the nearest node from OSMnx graph
-        nearest_node = ox.distance.nearest_nodes(graph, incident_longitude, incident_latitude)
-
-        # Get the node coordinates
-        node_data = graph.nodes[nearest_node]
-        nearest_node_latitude = node_data['y']
-        nearest_node_longitude = node_data['x']
-
-        # append node to array
-        incident_nodes.append([nearest_node, nearest_node_latitude, nearest_node_longitude])
-
-    return incident_nodes
-
-
-def get_incidents():
+def get_incidents(graph):
     # Define the API endpoint URL
     url = 'http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents'
 
-    # Add API key to request headers
-    headers = {'AccountKey': '3+bECt1yQROLKXbGnk8/Jw=='}
+    #get incident data from LTA
+    incidents = fetch_all(url)
+    # array to store incident nodes
+    incident_nodes = []
+    # Process the traffic incident data
+    for incident in incidents:
+        # Find the nearest node from OSMnx graph
+        nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
+        incident_nodes.append(nearest_node)
+    return incident_nodes
 
-    # Send the GET request to the API
-    response = requests.get(url, headers=headers)
-
-    # if the request was successful (status code 200)
-    if response.status_code == 200:
-        # Extract the traffic incident data from the response
-        data = response.json()
-
-        # Access the traffic incident information
-        incidents = data['value']
-
-        # array to store incidents coordinates
-        incident_coord = []
-
-        # array to store incident nodes
-        incident_nodes = []
-
-        # Process the traffic incident data
-        for incident in incidents:
-            incident_coord.append([incident['Latitude'], incident['Longitude']])
-
-        # get nearest node based on coordinates from API
-        incident_nodes = get_nearest_incident_node(incident_coord)
-
-        return incident_nodes
-    else:
-        # Handle the request error
-        print(f"Request failed with status code: {response.status_code}")
 
 
 def plot_map(origin_point, target_point, routes):

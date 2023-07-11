@@ -51,7 +51,7 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
     # dict to keep track of prev nodes in shortest path
     previous_nodes = {node: None for node in graph}
     avg_speed_limit = 50.0
-    #incident node for testing, minwah, dont avoid toll
+    # incident node for testing, minwah, dont avoid toll
     # incident_nodes.append(7153273679)
     # incident_nodes.append(5918708421)
     # queue to store nodes based on dist
@@ -86,7 +86,8 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
             if 'maxspeed' in weight[0]:
                 max_speed = float(weight[0]['maxspeed'])
                 speed_weight_factor = 1 / max_speed  # Higher maximum speed results in a lower weight factor
-            distance = current_distance + weight[0]['length'] * speed_weight_factor * erp_weight_factor * incident_weight_factor
+            distance = current_distance + weight[0][
+                'length'] * speed_weight_factor * erp_weight_factor * incident_weight_factor
 
             # Update dist and prev node if new distance shorter
             if distance < distances[neighbor]:
@@ -107,7 +108,7 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes):
     current_path.reverse()
     paths = []
     paths.append(current_path)
-    #for testing purpose
+    # for testing purpose
     # paths.append(
     #     [5150138417, 5150138416, 1838411380, 6992456898, 5150445925, 5150404767, 1842918201, 1842918210, 10196780610,
     #      1838411703, 10196780609, 7301014995, 5636769820, 1838411762, 4652670849, 1842918227, 1842918228, 2485945714,
@@ -190,7 +191,7 @@ def calculate_cumulative_time(graph, path, incident_nodes):
     # 30% allowance to consider traffic and slower driving, as not possible to drive at max speed all the way
     # additional 3 min for every incident node passed
     print(num_incident_nodes_passed)
-    return round(cumulative_time * 1.3 + (num_incident_nodes_passed*3))
+    return round(cumulative_time * 1.3 + (num_incident_nodes_passed * 3))
 
 
 def erp_rate(zoneid):
@@ -310,7 +311,7 @@ def get_incidents(graph):
     # Define the API endpoint URL
     url = 'http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents'
 
-    #get incident data from LTA
+    # get incident data from LTA
     incidents = fetch_all(url)
     # array to store incident nodes
     incident_nodes = []
@@ -320,7 +321,6 @@ def get_incidents(graph):
         nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
         incident_nodes.append(nearest_node)
     return incident_nodes
-
 
 
 def plot_map(origin_point, target_point, routes):
@@ -420,6 +420,13 @@ class Window(QtWidgets.QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.infolay = None
+        self.vlay = None
+        self.view = None
+        self.toll_dropdown = None
+        self.label_cost = None
+        self.label_distance = None
+        self.label_time = None
         self.destination_dropdown = None
         self.source_dropdown = None
         self.initWindow()
@@ -463,15 +470,6 @@ class Window(QtWidgets.QMainWindow):
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
 
-        # # display estimated time and distance
-        # self.info = QtWidgets.QVBoxLayout(self)
-        # self.label_time = QLabel("Estimated Time: -")
-        # self.label_distance = QLabel("Estimated Distance: -")
-        # self.label_cost = QLabel("Estimated Cost: -")
-        # self.info.addWidget(self.label_time)
-        # self.info.addWidget(self.label_distance)
-        # self.info.addWidget(self.label_cost)
-
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(25, 25, 25, 25)
 
@@ -493,7 +491,6 @@ class Window(QtWidgets.QMainWindow):
         self.vlay.addLayout(hlay)
         self.infolay = QtWidgets.QVBoxLayout(self)
         self.vlay.addLayout(self.infolay)
-        # self.vlay.addLayout(self.info)
         self.vlay.addStretch()
         lay.addWidget(button_container)
         lay.addWidget(self.view, stretch=1)
@@ -520,19 +517,20 @@ class Window(QtWidgets.QMainWindow):
         # this is to generate route WITH toll
         routes = generating_path(origin_point, target_point, toll)
         plot_map(origin_point, target_point, routes)
-        for child in self.infolay.children():
-            self.infolay.removeItem(child)
-        for _, _, total_dist, cumulative_time, total_cost in routes:
-            info = QtWidgets.QVBoxLayout(self)
-            label_time = QLabel(f"Estimated Time: {cumulative_time} min")
-            label_distance = QLabel(f"Estimated Distance: {total_dist} km")
-            label_cost = QLabel(f"Estimated Cost: ${total_cost}")
-            info.addWidget(label_time)
-            info.addWidget(label_distance)
-            info.addWidget(label_cost)
-            self.infolay.addLayout(info)
-            # self.infolay.addStretch()
 
+        # remove existing widget
+        while self.infolay.count():
+            item = self.infolay.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        for _, _, total_dist, cumulative_time, total_cost in routes:
+            self.label_time = QLabel(f"Estimated Time: {cumulative_time} min")
+            self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
+            self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
+            self.infolay.addWidget(self.label_time)
+            self.infolay.addWidget(self.label_distance)
+            self.infolay.addWidget(self.label_cost)
         # this is to generate route with NO toll
         # a_long, a_lat, a_total_dist, a_cumulative_time, a_total_cost = generating_alternate_path(origin_point, target_point, False)
         # print('this is path with toll: ', total_cost)
@@ -572,7 +570,6 @@ class Window(QtWidgets.QMainWindow):
         #     self.label_time.setText(f"Estimated Time: {a_cumulative_time} min")
         #     self.label_distance.setText(f"Estimated Distance: {a_total_dist} km")
         #     self.label_cost.setText(f"Estimated Cost: ${a_total_cost}")
-
 
         self.display_map('plot.html')
 

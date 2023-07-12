@@ -6,16 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="9ee1b13b-c75a-45f4-9dec-2a5d361a8f17" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ERP.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/RouteSav/RouteSav-Original.py" beforeDir="false" afterPath="$PROJECT_DIR$/RouteSav/RouteSav-Original.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/RouteSav/RouteSav-updated.py" beforeDir="false" afterPath="$PROJECT_DIR$/RouteSav/RouteSav-updated.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/03e162352fc368da0d591c092c2b4d70b8870cc6.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/188ec54c27e99db9a4abb31ca30e667512240c25.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/2fae63baa3f34f88e298b83de402f1620e61d1c2.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/366984ba8b0f59f1581d2b1ef6e31a2d06cd6fd1.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/65aef5157a63fef50e9b22b5c32cd604307d1a64.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/8db1f5ebc3013b7309f052bb6174b0f22b837fe4.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/cache/c1279ba15ea44428e7d838ee80d8570ff3c7b95a.json" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/RouteSav/plot.html" beforeDir="false" afterPath="$PROJECT_DIR$/RouteSav/plot.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RouteSav/preprocessed_graph.graphml" beforeDir="false" afterPath="$PROJECT_DIR$/RouteSav/preprocessed_graph.graphml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,14 +34,14 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "last_opened_file_path": "/Users/adam/Documents/GitHub/DSAProject",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/adam/Documents/GitHub/DSAProject&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/RouteSav" />

@@ -76,7 +76,9 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes, nodes_to
             if neighbor in nodes_to_avoid:
                 continue
             if toll:
-                if neighbor in ERP_NODES.keys() and erp_rate(ERP_NODES[neighbor]) != 0:  # Check if neighbor is an ERP node
+                # check if ERP is in use as even if avoid toll is selected, if ERP is not active, there is no toll charges
+                if neighbor in ERP_NODES.keys() and erp_rate(
+                        ERP_NODES[neighbor]) != 0:  # Check if neighbor is an ERP node
                     continue
             if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
                 rate = erp_rate(ERP_NODES[neighbor])
@@ -123,9 +125,9 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes, nodes_to
                 for item, edge in items:
                     if item == next_node and 'motorway' in edge[0]['highway']:
                         nodes_to_avoid.append(item)
+    # for testing purpose
     # paths = []
     # paths.append(current_path)
-    # for testing purpose
     # paths.append(
     #     [5150138417, 5150138416, 1838411380, 6992456898, 5150445925, 5150404767, 1842918201, 1842918210, 10196780610,
     #      1838411703, 10196780609, 7301014995, 5636769820, 1838411762, 4652670849, 1842918227, 1842918228, 2485945714,
@@ -165,7 +167,6 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes, nodes_to
     #      6240913299, 254641217, 6240913298, 6240913297, 6240913296, 6240913295, 6240913294, 6240913293, 6240913292,
     #      6240913288, 4321593140, 6240913289, 6240913291, 6240913290, 172548978, 172549005, 172549035, 172549056,
     #      3941568439, 6240778256, 254641180, 8140719535, 3979471587])
-
 
     return current_path, nodes_to_avoid
 
@@ -260,9 +261,16 @@ def calculate_total_cost(route):
     return cost
 
 
+def calculate_fuel_consumption(distance):
+    # fuel consumption of coach bus
+    vehicle_fuel_consumption = 0.182  # litres per km
+    fuel_consumed = vehicle_fuel_consumption * distance
+    return "{:.2f}".format(fuel_consumed)
+
+
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
-    # create_graph_process.join()
+    create_graph_process.join()
     paths = []
     routes = []
     nodes_to_avoid = []
@@ -280,6 +288,7 @@ def generating_path(origin_point, target_point, toll):
     # Get the optimal path via Dijkstra's algorithm
     path, nodes_to_avoid = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes, nodes_to_avoid)
     paths.append(path)
+    # Get distinct alternative path
     path, nodes_to_avoid = dijkstra_shortest_path(graph, origin_node, target_node, toll, incident_nodes, nodes_to_avoid)
     paths.append(path)
 
@@ -287,6 +296,7 @@ def generating_path(origin_point, target_point, toll):
         total_distance = calculate_total_distance(graph, path)
         cumulative_time = calculate_cumulative_time(graph, path, incident_nodes)
         total_cost = calculate_total_cost(path)
+        fuel_consumption = calculate_fuel_consumption(float(total_distance))
         lat = []
         long = []
 
@@ -294,57 +304,49 @@ def generating_path(origin_point, target_point, toll):
             point = graph.nodes[i]
             long.append(point['x'])
             lat.append(point['y'])
-        routes.append((long, lat, total_distance, cumulative_time, total_cost))
-    
-    # swap the first in array to be the top priority
-    time1 = float(routes[0][3])
-    time2 = float(routes[1][3])
-    distance1 = float(routes[0][2])
-    distance2 = float(routes[1][2])
-    erp1 = float(routes[0][4])
-    erp2 = float(routes[1][4])
-    # swap to print the red line above the grey
-    if time1 < time2:
-        routes[0], routes[1] = routes[1], routes[0]
-    elif time1 == time2 and distance1 < distance2:
-        routes[0], routes[1] = routes[1], routes[0]
-    elif time1 == time2 and distance1 == distance2 and erp1 < erp2:
-        routes[0], routes[1] = routes[1], routes[0]
-    # Return the route route    
+        routes.append((long, lat, total_distance, cumulative_time, total_cost, fuel_consumption))
+
     return routes
 
 
-# Generate alternate path
-# def generating_alternate_path(origin_point, target_point, toll):
-#     """load processed graph and use to calculate optimal route"""
-#     # create_graph_process.join()
-#
-#     # Load the pre-processed graph
-#     graph = ox.load_graphml('preprocessed_graph.graphml')
-#
-#     # Get the nearest node in the OSMNX graph for the origin point
-#     origin_node = ox.distance.nearest_nodes(graph, origin_point[1], origin_point[0])
-#
-#     # Get the nearest node in the OSMNX graph for the target point
-#     target_node = ox.distance.nearest_nodes(graph, target_point[1], target_point[0])
-#
-#     # Get the optimal path via Dijkstra's algorithm
-#     route = dijkstra_shortest_path(graph, origin_node, target_node, toll)
-#
-#     a_total_distance = calculate_total_distance(graph, route)
-#     a_cumulative_time = calculate_cumulative_time(graph, route)
-#     a_total_cost = calculate_total_cost(route)
-#     # Create the arrays for storing the paths
-#     a_lat = []
-#     a_long = []
-#
-#     for i in route:
-#         point = graph.nodes[i]
-#         a_long.append(point['x'])
-#         a_lat.append(point['y'])
-#
-#     # Return the paths
-#     return a_long, a_lat, a_total_distance, a_cumulative_time, a_total_cost
+def optimize_routes(routes):
+    # select the best routes between the 2 routes
+    route1_distance = float(routes[0][2])
+    route1_time = float(routes[0][3])
+    route1_cost = float(routes[0][4])
+    route1_fuel = float(routes[0][5])
+
+    route2_distance = float(routes[1][2])
+    route2_time = float(routes[1][3])
+    route2_cost = float(routes[1][4])
+    route2_fuel = float(routes[1][5])
+
+    if route1_time < route2_time:
+        return routes
+    elif route2_time < route1_time:
+        routes[0], routes[1] = routes[1], routes[0]
+        return routes
+    else:
+        if route1_cost < route2_cost:
+            return routes
+        elif route2_cost < route1_cost:
+            routes[0], routes[1] = routes[1], routes[0]
+            return routes
+        else:
+            if route1_distance < route2_distance:
+                return routes
+            elif route2_distance < route1_distance:
+                routes[0], routes[1] = routes[1], routes[0]
+                return routes
+            else:
+                if route1_fuel < route2_fuel:
+                    return routes
+                elif route2_fuel < route1_fuel:
+                    routes[0], routes[1] = routes[1], routes[0]
+                    return routes
+                else:
+                    return routes
+
 
 def get_incidents(graph):
     # Define the API endpoint URL
@@ -356,7 +358,7 @@ def get_incidents(graph):
     incident_nodes = []
     # Process the traffic incident data
     for incident in incidents:
-        if incident['Type'] in ['Accident', 'Road Block','Vehicle Breakdown', 'Heavy Traffic']:
+        if incident['Type'] in ['Accident', 'Road Block', 'Vehicle Breakdown', 'Heavy Traffic']:
             # Find the nearest node from OSMnx graph
             nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
             incident_nodes.append(nearest_node)
@@ -380,33 +382,34 @@ def plot_map(origin_point, target_point, routes):
     )
     )
 
-    # # Plot lines from the origin to start of path
-    # print("Generating lines...")
-    # fig.add_trace(go.Scattermapbox(
-    #     name="Walking Line",
-    #     mode="lines",
-    #     lon=[origin_point[1], long[0]],
-    #     lat=[origin_point[0], lat[0]],
-    #     marker={'size': 10},
-    #     showlegend=False,
-    #     line=dict(width=4.5, color='#808080'))
-    # )
     for index, route in enumerate(routes):
-        long, lat, _, _, _ = route
+        long, lat, _, _, _, _ = route
         # Plot the optimal paths to the map
         print("Generating paths.....")
         if index == 0:
             fig.add_trace(go.Scattermapbox(
-            name="Path",
-            mode="lines",
-            lon=long,
-            lat=lat,
-            marker={'size': 10},
-            showlegend=False,
-            line=dict(width=4.5, color='#CCCCCC'))
+                name="Path",
+                mode="lines",
+                lon=long,
+                lat=lat,
+                marker={'size': 10},
+                showlegend=False,
+                line=dict(width=4.5, color='#CCCCCC'))
             )
-        
+
         else:
+            # Plot lines from the origin to start of path
+            print("Generating lines...")
+            fig.add_trace(go.Scattermapbox(
+                name="Walking Line",
+                mode="lines",
+                lon=[origin_point[1], long[0]],
+                lat=[origin_point[0], lat[0]],
+                marker={'size': 10},
+                showlegend=False,
+                line=dict(width=4.5, color='#808080'))
+            )
+
             fig.add_trace(go.Scattermapbox(
                 name="Path",
                 mode="lines",
@@ -415,6 +418,18 @@ def plot_map(origin_point, target_point, routes):
                 marker={'size': 10},
                 showlegend=False,
                 line=dict(width=4.5, color='#ff0000'))
+            )
+
+            # Plot  lines from the end of the path to the target
+            print("Generating lines...")
+            fig.add_trace(go.Scattermapbox(
+                name="Walking Line",
+                mode="lines",
+                lon=[long[-1], target_point[1]],
+                lat=[lat[-1], target_point[0]],
+                marker={'size': 10},
+                showlegend=False,
+                line=dict(width=4.5, color='#808080'))
             )
 
     # Plot the target geocoordinates to the map
@@ -426,18 +441,6 @@ def plot_map(origin_point, target_point, routes):
         lon=[target_point[1]],
         lat=[target_point[0]],
         marker={'size': 16, 'color': '#ff0000'}))
-
-    # # Plot  lines from the end of the path to the target
-    # print("Generating lines...")
-    # fig.add_trace(go.Scattermapbox(
-    #     name="Walking Line",
-    #     mode="lines",
-    #     lon=[long[-1], target_point[1]],
-    #     lat=[lat[-1], target_point[0]],
-    #     marker={'size': 10},
-    #     showlegend=False,
-    #     line=dict(width=4.5, color='#808080'))
-    # )
 
     # Style the map layout
     fig.update_layout(
@@ -486,7 +489,7 @@ class Window(QtWidgets.QMainWindow):
         self.initWindow()
 
     def initWindow(self):
-        self.setWindowTitle(self.tr("MAP PROJECT"))
+        self.setWindowTitle(self.tr("RouteSAV"))
         self.setFixedSize(1500, 800)
         self.buttonUI()
         self.display_map('default.html')
@@ -520,7 +523,6 @@ class Window(QtWidgets.QMainWindow):
         self.toll_dropdown = QComboBox(self)
         self.toll_dropdown.addItem("Yes", True)
         self.toll_dropdown.addItem("No", False)
-
 
         findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
         findPathButton.setFixedSize(120, 50)
@@ -569,9 +571,12 @@ class Window(QtWidgets.QMainWindow):
         origin_point = (source[0], source[1])
         target_point = (destination[0], destination[1])
 
-        # this is to generate route WITH toll
+        # this is to generate routes
         routes = generating_path(origin_point, target_point, toll)
-        plot_map(origin_point, target_point, routes)
+        optimized_routes = optimize_routes(routes)
+        # swap the sequence of route to draw the optimal route above the alternate route
+        optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
+        plot_map(origin_point, target_point, optimized_routes)
 
         # remove existing widget
         while self.infolay.count():
@@ -581,9 +586,9 @@ class Window(QtWidgets.QMainWindow):
                 widget.deleteLater()
 
         # swap the sequence back
-        routes[0], routes[1] = routes[1], routes[0]
+        optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
 
-        for index, route in enumerate(routes):
+        for index, route in enumerate(optimized_routes):
             if index == 0:
                 self.red_label = QLabel("Optimal route In red:", self)
                 self.infolay.addWidget(self.red_label)
@@ -591,63 +596,22 @@ class Window(QtWidgets.QMainWindow):
                 self.grey_label = QLabel("Alternate route In grey:", self)
                 self.infolay.addWidget(self.grey_label)
 
-            _, _, total_dist, cumulative_time, total_cost = route
+            _, _, total_dist, cumulative_time, total_cost, fuel_consumption = route
             self.label_time = QLabel(f"Estimated Time: {cumulative_time} min")
             self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
             self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
+            self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
             self.infolay.addWidget(self.label_time)
             self.infolay.addWidget(self.label_distance)
             self.infolay.addWidget(self.label_cost)
-
-
-
-        # this is to generate route with NO toll
-        # a_long, a_lat, a_total_dist, a_cumulative_time, a_total_cost = generating_alternate_path(origin_point, target_point, False)
-        # print('this is path with toll: ', total_cost)
-        # print('this is path with toll: ', a_total_cost)
-
-        # NOTE : It will only show alternate path if there is a cost difference as live data of ERP
-        # = must see the timing if there is ERP then will see alternate path
-        # if total_cost == a_total_cost:
-        #     if cumulative_time > a_cumulative_time:
-        #         update_map(plot_norm_noToll_map(origin_point, target_point, long, lat, create_fig(origin_point)), long,
-        #                    lat)
-        #         self.label_time.setText(f"Estimated Time: {a_cumulative_time} min")
-        #         self.label_distance.setText(f"Estimated Distance: {a_total_dist} km")
-        #         self.label_cost.setText(f"Estimated Cost: ${a_total_cost}")
-        #     elif a_cumulative_time > cumulative_time:
-        #         update_map(plot_norm_toll_map(origin_point, target_point, long, lat, create_fig(origin_point)), long,
-        #                    lat)
-        #         self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-        #         self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-        #         self.label_cost.setText(f"Estimated Cost: ${total_cost}")
-        #     elif a_cumulative_time == cumulative_time:
-        #         update_map(plot_norm_toll_map(origin_point, target_point, long, lat, create_fig(origin_point)), long,
-        #                    lat)
-        #         self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-        #         self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-        #         self.label_cost.setText(f"Estimated Cost: ${total_cost}")
-        # elif toll:
-        #     update_map(plot_toll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)),
-        #                long, lat)
-        #     self.label_time.setText(f"Estimated Time: {cumulative_time} min")
-        #     self.label_distance.setText(f"Estimated Distance: {total_dist} km")
-        #     self.label_cost.setText(f"Estimated Cost: ${total_cost}")
-        # elif toll == False:
-        #     update_map(plot_notoll_map(origin_point, target_point, long, lat, a_long, a_lat, create_fig(origin_point)),
-        #                long,
-        #                lat)
-        #     self.label_time.setText(f"Estimated Time: {a_cumulative_time} min")
-        #     self.label_distance.setText(f"Estimated Distance: {a_total_dist} km")
-        #     self.label_cost.setText(f"Estimated Cost: ${a_total_cost}")
+            self.infolay.addWidget(self.label_fuel)
 
         self.display_map('plot.html')
 
 
 if __name__ == "__main__":
-    # create_graph_process = Process(target=create_graph)
-    # create_graph_process.start()
-    # calculate_total_cost()
+    create_graph_process = Process(target=create_graph)
+    create_graph_process.start()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

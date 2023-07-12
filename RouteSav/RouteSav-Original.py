@@ -417,7 +417,7 @@ class Window(QtWidgets.QMainWindow):
         self.initWindow()
 
     def initWindow(self):
-        self.setWindowTitle(self.tr("MAP PROJECT"))
+        self.setWindowTitle(self.tr("RouteSAV"))
         self.setFixedSize(1500, 800)
         self.buttonUI()
         self.display_map('default.html')

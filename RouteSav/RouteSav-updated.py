@@ -583,10 +583,10 @@ class Window(QtWidgets.QMainWindow):
 
         for index, route in enumerate(routes):
             if index == 0:
-                self.red_label = QLabel("In red:", self)
+                self.red_label = QLabel("Optimal route In red:", self)
                 self.infolay.addWidget(self.red_label)
             else:
-                self.grey_label = QLabel("In grey:", self)
+                self.grey_label = QLabel("Alternate route In grey:", self)
                 self.infolay.addWidget(self.grey_label)
 
             _, _, total_dist, cumulative_time, total_cost = route

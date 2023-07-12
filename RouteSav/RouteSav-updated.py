@@ -76,7 +76,7 @@ def dijkstra_shortest_path(graph, source, target, toll, incident_nodes, nodes_to
             if neighbor in nodes_to_avoid:
                 continue
             if toll:
-                if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
+                if neighbor in ERP_NODES.keys() and erp_rate(ERP_NODES[neighbor]) != 0:  # Check if neighbor is an ERP node
                     continue
             if neighbor in ERP_NODES.keys():  # Check if neighbor is an ERP node
                 rate = erp_rate(ERP_NODES[neighbor])
@@ -356,9 +356,11 @@ def get_incidents(graph):
     incident_nodes = []
     # Process the traffic incident data
     for incident in incidents:
-        # Find the nearest node from OSMnx graph
-        nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
-        incident_nodes.append(nearest_node)
+        if incident['Type'] in ['Accident', 'Road Block','Vehicle Breakdown', 'Heavy Traffic']:
+            # Find the nearest node from OSMnx graph
+            nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
+            incident_nodes.append(nearest_node)
+            print(incident['Type'], nearest_node)
     return incident_nodes
 
 

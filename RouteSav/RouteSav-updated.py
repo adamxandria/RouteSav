@@ -232,9 +232,9 @@ def erp_rate(zoneid):
     # Get the current time in Singapore
     current_time = datetime.now(sg_timezone).time()
     # hardcoded for testing purpose
-    # day_type = 'Weekdays'
-    # test_time = datetime(year=2023, month=7, day=6, hour=8, minute=30, second=0)
-    # current_time = test_time.time()
+    day_type = 'Weekdays'
+    test_time = datetime(year=2023, month=7, day=6, hour=8, minute=30, second=0)
+    current_time = test_time.time()
     for erp in erp_rates:
         if zoneid in erp['ZoneID']:
             if vehicle_type in erp['VehicleType']:
@@ -267,10 +267,9 @@ def calculate_fuel_consumption(distance):
     fuel_consumed = vehicle_fuel_consumption * distance
     return "{:.2f}".format(fuel_consumed)
 
-
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
-    create_graph_process.join()
+    # create_graph_process.join()
     paths = []
     routes = []
     nodes_to_avoid = []
@@ -322,30 +321,14 @@ def optimize_routes(routes):
     route2_fuel = float(routes[1][5])
 
     if route1_time < route2_time:
-        return routes
-    elif route2_time < route1_time:
         routes[0], routes[1] = routes[1], routes[0]
-        return routes
-    else:
-        if route1_cost < route2_cost:
-            return routes
-        elif route2_cost < route1_cost:
-            routes[0], routes[1] = routes[1], routes[0]
-            return routes
-        else:
-            if route1_distance < route2_distance:
-                return routes
-            elif route2_distance < route1_distance:
-                routes[0], routes[1] = routes[1], routes[0]
-                return routes
-            else:
-                if route1_fuel < route2_fuel:
-                    return routes
-                elif route2_fuel < route1_fuel:
-                    routes[0], routes[1] = routes[1], routes[0]
-                    return routes
-                else:
-                    return routes
+    elif route1_time == route2_time and route1_distance < route2_distance:
+        routes[0], routes[1] = routes[1], routes[0]
+    elif route1_time == route2_time and route1_distance == route2_distance and route1_cost < route2_cost:
+        routes[0], routes[1] = routes[1], routes[0]
+    elif route1_time == route2_time and route1_distance == route2_distance and route1_cost == route2_cost and route1_fuel < route2_fuel:
+        routes[0], routes[1] = routes[1], routes[0]
+    return routes
 
 
 def get_incidents(graph):
@@ -358,7 +341,7 @@ def get_incidents(graph):
     incident_nodes = []
     # Process the traffic incident data
     for incident in incidents:
-        if incident['Type'] in ['Accident', 'Road Block', 'Vehicle Breakdown', 'Heavy Traffic']:
+        if incident['Type'] in ['Accident', 'Road block', 'Vehicle breakdown', 'Heavy traffic']:
             # Find the nearest node from OSMnx graph
             nearest_node = ox.distance.nearest_nodes(graph, incident['Longitude'], incident['Latitude'])
             incident_nodes.append(nearest_node)
@@ -574,8 +557,6 @@ class Window(QtWidgets.QMainWindow):
         # this is to generate routes
         routes = generating_path(origin_point, target_point, toll)
         optimized_routes = optimize_routes(routes)
-        # swap the sequence of route to draw the optimal route above the alternate route
-        optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
         plot_map(origin_point, target_point, optimized_routes)
 
         # remove existing widget
@@ -610,8 +591,8 @@ class Window(QtWidgets.QMainWindow):
 
 
 if __name__ == "__main__":
-    create_graph_process = Process(target=create_graph)
-    create_graph_process.start()
+    # create_graph_process = Process(target=create_graph)
+    # create_graph_process.start()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

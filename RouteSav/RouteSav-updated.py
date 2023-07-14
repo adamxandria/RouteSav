@@ -2,7 +2,7 @@ import os
 import sys
 import plotly.graph_objects as go
 import osmnx as ox
-from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore
+from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore,QtGui
 from PyQt5.QtWidgets import QLabel, QComboBox
 from plotly import offline
 import heapq
@@ -177,7 +177,6 @@ def create_graph():
         os.remove('preprocessed_graph.graphml')
     graph = ox.graph_from_bbox(NORTH + PERIMETER, SOUTH - PERIMETER, EAST + PERIMETER, WEST - PERIMETER,
                                network_type=MODE, simplify=False)
-
     ox.save_graphml(graph, 'preprocessed_graph.graphml')
 
 
@@ -269,7 +268,7 @@ def calculate_fuel_consumption(distance):
 
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
-    # create_graph_process.join()
+    create_graph_process.join()
     paths = []
     routes = []
     nodes_to_avoid = []
@@ -479,8 +478,12 @@ class Window(QtWidgets.QMainWindow):
 
     def buttonUI(self):
         """create and display all button and widgets"""
+        description_label = QLabel("<b> WELCOME TO RouteSAV<b>", self)
+        description_label.setFont(QtGui.QFont("Arial", 10))
+
         # Create the "Source" title label
-        source_label = QLabel("Starting Point", self)
+        source_label = QLabel("<b><u>Starting Point</u><b>", self)
+        source_label.setFont(QtGui.QFont("Arial", 8))
 
         # Create the source dropdown
         self.source_dropdown = QComboBox(self)
@@ -490,7 +493,8 @@ class Window(QtWidgets.QMainWindow):
         self.source_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
 
         # Create the "Destination" title label
-        destination_label = QLabel("Destination", self)
+        destination_label = QLabel("<b><u>Destination</u><b>", self)
+        destination_label.setFont(QtGui.QFont("Arial", 8))
 
         # Create the destination dropdown
         self.destination_dropdown = QComboBox(self)
@@ -500,14 +504,15 @@ class Window(QtWidgets.QMainWindow):
         self.destination_dropdown.addItem("Amrise Hotel", [1.3139710326135319, 103.87786884865685])
 
         # Create the "Avoid Toll" title label
-        toll_label = QLabel("Avoid Toll", self)
+        toll_label = QLabel("<b><u>Avoid Toll</u><b>", self)
+        toll_label.setFont(QtGui.QFont("Arial", 8))
 
         # Create the "avoid toll" dropdown
         self.toll_dropdown = QComboBox(self)
         self.toll_dropdown.addItem("Yes", True)
         self.toll_dropdown.addItem("No", False)
 
-        findPathButton = QtWidgets.QPushButton(self.tr("Find path"))
+        findPathButton = QtWidgets.QPushButton(self.tr("Find Route"))
         findPathButton.setFixedSize(120, 50)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
@@ -520,6 +525,7 @@ class Window(QtWidgets.QMainWindow):
         button_container = QtWidgets.QWidget()
         self.vlay = QtWidgets.QVBoxLayout(button_container)
         self.vlay.addStretch()
+        self.vlay.addWidget(description_label)
         self.vlay.addWidget(source_label)
         self.vlay.addWidget(self.source_dropdown)
         self.vlay.addWidget(destination_label)
@@ -550,49 +556,65 @@ class Window(QtWidgets.QMainWindow):
         source = self.source_dropdown.itemData(self.source_dropdown.currentIndex())
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
         toll = self.toll_dropdown.itemData(self.toll_dropdown.currentIndex())
-        # Set the origin and target geocoordinate from which the paths are calculated
-        origin_point = (source[0], source[1])
-        target_point = (destination[0], destination[1])
 
-        # this is to generate routes
-        routes = generating_path(origin_point, target_point, toll)
-        optimized_routes = optimize_routes(routes)
-        plot_map(origin_point, target_point, optimized_routes)
+        #Prevent the same path 
+        if source ==destination:
+            self.wrong_label = QLabel("<b>WRONG CHOICE\n</b>  <i>Your Starting and Destination are the same.</i>", self)
+            self.infolay.addWidget(self.wrong_label)
+            self.wrong_label.setFont(QtGui.QFont("Sanserif", 10))
+        else:
+            # Set the origin and target geocoordinate from which the paths are calculated
+            origin_point = (source[0], source[1])
+            target_point = (destination[0], destination[1])
 
-        # remove existing widget
-        while self.infolay.count():
-            item = self.infolay.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+            # this is to generate routes
+            routes = generating_path(origin_point, target_point, toll)
+            optimized_routes = optimize_routes(routes)
+            plot_map(origin_point, target_point, optimized_routes)
 
-        # swap the sequence back
-        optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
+            # remove existing widget
+            while self.infolay.count():
+                item = self.infolay.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
 
-        for index, route in enumerate(optimized_routes):
-            if index == 0:
-                self.red_label = QLabel("Optimal route In red:", self)
-                self.infolay.addWidget(self.red_label)
-            else:
-                self.grey_label = QLabel("Alternate route In grey:", self)
-                self.infolay.addWidget(self.grey_label)
+            # swap the sequence back
+            optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
 
-            _, _, total_dist, cumulative_time, total_cost, fuel_consumption = route
-            self.label_time = QLabel(f"Estimated Time: {cumulative_time} min")
-            self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
-            self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
-            self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
-            self.infolay.addWidget(self.label_time)
-            self.infolay.addWidget(self.label_distance)
-            self.infolay.addWidget(self.label_cost)
-            self.infolay.addWidget(self.label_fuel)
+            for index, route in enumerate(optimized_routes):
+                self.break_label = QLabel("-----------------------------------------------")
+                self.infolay.addWidget(self.break_label)
+                
+                if index == 0:
+                    self.red_label = QLabel("<b>Optimal Route In Red</b>", self)
+                    self.infolay.addWidget(self.red_label)
+                    self.red_label.setFont(QtGui.QFont("Arial", 10))
+                    self.red_label.setStyleSheet("QLabel { background-color : red; color : white; }")
+                else:
+                    self.grey_label = QLabel("<b>Alternate Route In Grey</b>", self)
+                    self.infolay.addWidget(self.grey_label)
+                    self.grey_label.setFont(QtGui.QFont("Arial", 10))
+                    self.grey_label.setStyleSheet("QLabel { background-color : grey; color : white; }")
 
-        self.display_map('plot.html')
+                _, _, total_dist, cumulative_time, total_cost, fuel_consumption = route
+                self.label_time = QLabel(f"Estimated Time: {cumulative_time} min")
+                self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
+                self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
+                self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
+                self.break_label = QLabel("-----------------------------------------------")
+                self.infolay.addWidget(self.label_time)
+                self.infolay.addWidget(self.label_distance)
+                self.infolay.addWidget(self.label_cost)
+                self.infolay.addWidget(self.label_fuel)               
+                self.infolay.addWidget(self.break_label)
+
+            self.display_map('plot.html')
 
 
 if __name__ == "__main__":
-    # create_graph_process = Process(target=create_graph)
-    # create_graph_process.start()
+    create_graph_process = Process(target=create_graph)
+    create_graph_process.start()
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()

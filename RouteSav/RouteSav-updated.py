@@ -478,8 +478,8 @@ class Window(QtWidgets.QMainWindow):
 
     def buttonUI(self):
         """create and display all button and widgets"""
-        description_label = QLabel("<b> WELCOME TO RouteSAV<b>", self)
-        description_label.setFont(QtGui.QFont("Arial", 10))
+        description_label = QLabel("<b>WELCOME TO RouteSAV<b>", self)
+        description_label.setFont(QtGui.QFont("Arial", 15))
 
         # Create the "Source" title label
         source_label = QLabel("<b><u>Starting Point</u><b>", self)
@@ -559,9 +559,11 @@ class Window(QtWidgets.QMainWindow):
 
         #Prevent the same path 
         if source ==destination:
-            self.wrong_label = QLabel("<b>WRONG CHOICE\n</b>  <i>Your Starting and Destination are the same.</i>", self)
+            self.wrong_label = QLabel("<b>WRONG SELECTION</b>  <i>Your Starting Point and Destination are the same.</i>", self)
             self.infolay.addWidget(self.wrong_label)
             self.wrong_label.setFont(QtGui.QFont("Sanserif", 10))
+            self.wrong_label.setStyleSheet("QLabel { background-color : yellow; color : black; }")
+            
         else:
             # Set the origin and target geocoordinate from which the paths are calculated
             origin_point = (source[0], source[1])
@@ -583,7 +585,7 @@ class Window(QtWidgets.QMainWindow):
             optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
 
             for index, route in enumerate(optimized_routes):
-                self.break_label = QLabel("-----------------------------------------------")
+                self.break_label = QLabel("------------------------------------------------------------------")
                 self.infolay.addWidget(self.break_label)
                 
                 if index == 0:
@@ -602,7 +604,7 @@ class Window(QtWidgets.QMainWindow):
                 self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
                 self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
                 self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
-                self.break_label = QLabel("-----------------------------------------------")
+                self.break_label = QLabel("------------------------------------------------------------------")
                 self.infolay.addWidget(self.label_time)
                 self.infolay.addWidget(self.label_distance)
                 self.infolay.addWidget(self.label_cost)

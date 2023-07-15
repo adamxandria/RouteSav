@@ -472,14 +472,21 @@ class Window(QtWidgets.QMainWindow):
 
     def initWindow(self):
         self.setWindowTitle(self.tr("RouteSAV"))
-        self.setFixedSize(1500, 800)
+        self.setFixedSize(1700, 900)
         self.buttonUI()
         self.display_map('default.html')
+        
+
 
     def buttonUI(self):
         """create and display all button and widgets"""
-        description_label = QLabel("<b>WELCOME TO RouteSAV<b>", self)
+        title_label = QLabel("<b><u>Welcome To RouteSAV</u><b>", self)
+        title_label.setFont(QtGui.QFont("Georgia", 18))
+        title_label.setAlignment(QtCore.Qt.AlignCenter)
+        description_label = QLabel("\nSelect your Starting Point & Destination.\nDo indicate if you would like to avoid toll.", self)
         description_label.setFont(QtGui.QFont("Arial", 15))
+        description_label.setAlignment(QtCore.Qt.AlignCenter)
+        break_label = QLabel("----------------------------------------------------------------------------------------------------------")
 
         # Create the "Source" title label
         source_label = QLabel("<b><u>Starting Point</u><b>", self)
@@ -521,11 +528,13 @@ class Window(QtWidgets.QMainWindow):
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         lay = QtWidgets.QHBoxLayout(central_widget)
-
+        
         button_container = QtWidgets.QWidget()
         self.vlay = QtWidgets.QVBoxLayout(button_container)
         self.vlay.addStretch()
+        self.vlay.addWidget(title_label)
         self.vlay.addWidget(description_label)
+        self.vlay.addWidget(break_label)
         self.vlay.addWidget(source_label)
         self.vlay.addWidget(self.source_dropdown)
         self.vlay.addWidget(destination_label)
@@ -583,9 +592,11 @@ class Window(QtWidgets.QMainWindow):
 
             # swap the sequence back
             optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
+            
+
 
             for index, route in enumerate(optimized_routes):
-                self.break_label = QLabel("------------------------------------------------------------------")
+                self. break_label = QLabel("----------------------------------------------------------------------------------------------------------")
                 self.infolay.addWidget(self.break_label)
                 
                 if index == 0:
@@ -604,12 +615,13 @@ class Window(QtWidgets.QMainWindow):
                 self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
                 self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
                 self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
-                self.break_label = QLabel("------------------------------------------------------------------")
+                self. break_label = QLabel("----------------------------------------------------------------------------------------------------------")
                 self.infolay.addWidget(self.label_time)
                 self.infolay.addWidget(self.label_distance)
                 self.infolay.addWidget(self.label_cost)
                 self.infolay.addWidget(self.label_fuel)               
                 self.infolay.addWidget(self.break_label)
+                self.infolay.setSizeConstraint(0)
 
             self.display_map('plot.html')
 
@@ -620,4 +632,5 @@ if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()
+    
     sys.exit(App.exec())

@@ -2,7 +2,7 @@ import os
 import sys
 import plotly.graph_objects as go
 import osmnx as ox
-from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore,QtGui
+from PyQt5 import QtWidgets, QtWebEngineWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QLabel, QComboBox
 from plotly import offline
 import heapq
@@ -202,7 +202,10 @@ def calculate_cumulative_time(graph, path, incident_nodes):
         edge_data = graph[node1][node2][0]
         edge_length = edge_data['length'] / 1000
         if 'maxspeed' in edge_data:
-            edge_speed = float(edge_data['maxspeed'])  # Speed specific to the edge
+            if float(edge_data['maxspeed']) > 60:
+                edge_speed = 60.0
+            else:
+                edge_speed = float(edge_data['maxspeed'])  # Speed specific to the edge
         else:
             edge_speed = 50.0
         edge_time = edge_length / edge_speed * 60
@@ -265,6 +268,7 @@ def calculate_fuel_consumption(distance):
     vehicle_fuel_consumption = 0.182  # litres per km
     fuel_consumed = vehicle_fuel_consumption * distance
     return "{:.2f}".format(fuel_consumed)
+
 
 def generating_path(origin_point, target_point, toll):
     """load processed graph and use to calculate optimal route"""
@@ -475,18 +479,18 @@ class Window(QtWidgets.QMainWindow):
         self.setFixedSize(1700, 900)
         self.buttonUI()
         self.display_map('default.html')
-        
-
 
     def buttonUI(self):
         """create and display all button and widgets"""
         title_label = QLabel("<b><u>Welcome To RouteSAV</u><b>", self)
         title_label.setFont(QtGui.QFont("Georgia", 18))
         title_label.setAlignment(QtCore.Qt.AlignCenter)
-        description_label = QLabel("\nSelect your Starting Point & Destination.\nDo indicate if you would like to avoid toll.", self)
+        description_label = QLabel(
+            "\nSelect your Starting Point & Destination.\nDo indicate if you would like to avoid toll.", self)
         description_label.setFont(QtGui.QFont("Arial", 15))
         description_label.setAlignment(QtCore.Qt.AlignCenter)
-        break_label = QLabel("----------------------------------------------------------------------------------------------------------")
+        break_label = QLabel(
+            "----------------------------------------------------------------------------------------------------------")
 
         # Create the "Source" title label
         source_label = QLabel("<b><u>Starting Point</u><b>", self)
@@ -528,7 +532,7 @@ class Window(QtWidgets.QMainWindow):
         central_widget = QtWidgets.QWidget()
         self.setCentralWidget(central_widget)
         lay = QtWidgets.QHBoxLayout(central_widget)
-        
+
         button_container = QtWidgets.QWidget()
         self.vlay = QtWidgets.QVBoxLayout(button_container)
         self.vlay.addStretch()
@@ -566,13 +570,14 @@ class Window(QtWidgets.QMainWindow):
         destination = self.destination_dropdown.itemData(self.destination_dropdown.currentIndex())
         toll = self.toll_dropdown.itemData(self.toll_dropdown.currentIndex())
 
-        #Prevent the same path 
-        if source ==destination:
-            self.wrong_label = QLabel("<b>WRONG SELECTION</b>  <i>Your Starting Point and Destination are the same.</i>", self)
+        # Prevent the same path
+        if source == destination:
+            self.wrong_label = QLabel(
+                "<b>WRONG SELECTION</b>  <i>Your Starting Point and Destination are the same.</i>", self)
             self.infolay.addWidget(self.wrong_label)
             self.wrong_label.setFont(QtGui.QFont("Sanserif", 10))
             self.wrong_label.setStyleSheet("QLabel { background-color : yellow; color : black; }")
-            
+
         else:
             # Set the origin and target geocoordinate from which the paths are calculated
             origin_point = (source[0], source[1])
@@ -592,13 +597,12 @@ class Window(QtWidgets.QMainWindow):
 
             # swap the sequence back
             optimized_routes[0], optimized_routes[1] = optimized_routes[1], optimized_routes[0]
-            
-
 
             for index, route in enumerate(optimized_routes):
-                self. break_label = QLabel("----------------------------------------------------------------------------------------------------------")
+                self.break_label = QLabel(
+                    "----------------------------------------------------------------------------------------------------------")
                 self.infolay.addWidget(self.break_label)
-                
+
                 if index == 0:
                     self.red_label = QLabel("<b>Optimal Route In Red</b>", self)
                     self.infolay.addWidget(self.red_label)
@@ -615,11 +619,12 @@ class Window(QtWidgets.QMainWindow):
                 self.label_distance = QLabel(f"Estimated Distance: {total_dist} km")
                 self.label_cost = QLabel(f"Estimated Cost: ${total_cost}")
                 self.label_fuel = QLabel(f"Estimated Fuel Consumption: {fuel_consumption} liters")
-                self. break_label = QLabel("----------------------------------------------------------------------------------------------------------")
+                self.break_label = QLabel(
+                    "----------------------------------------------------------------------------------------------------------")
                 self.infolay.addWidget(self.label_time)
                 self.infolay.addWidget(self.label_distance)
                 self.infolay.addWidget(self.label_cost)
-                self.infolay.addWidget(self.label_fuel)               
+                self.infolay.addWidget(self.label_fuel)
                 self.infolay.addWidget(self.break_label)
                 self.infolay.setSizeConstraint(0)
 
@@ -632,5 +637,5 @@ if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()
-    
+
     sys.exit(App.exec())
